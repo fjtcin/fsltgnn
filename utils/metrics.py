@@ -1,5 +1,6 @@
+import numpy as np
 import torch
-from sklearn.metrics import average_precision_score, roc_auc_score
+from sklearn.metrics import average_precision_score, roc_auc_score, classification_report
 
 
 def get_link_prediction_metrics(predicts: torch.Tensor, labels: torch.Tensor):
@@ -10,8 +11,8 @@ def get_link_prediction_metrics(predicts: torch.Tensor, labels: torch.Tensor):
     :return:
         dictionary of metrics {'metric_name_1': metric_1, ...}
     """
-    predicts = predicts.cpu().detach().numpy()
-    labels = labels.cpu().numpy()
+    predicts = predicts.numpy(force=True)
+    labels = labels.numpy(force=True)
 
     average_precision = average_precision_score(y_true=labels, y_score=predicts)
     roc_auc = roc_auc_score(y_true=labels, y_score=predicts)
@@ -27,9 +28,32 @@ def get_node_classification_metrics(predicts: torch.Tensor, labels: torch.Tensor
     :return:
         dictionary of metrics {'metric_name_1': metric_1, ...}
     """
-    predicts = predicts.cpu().detach().numpy()
-    labels = labels.cpu().numpy()
+    predicts = predicts.numpy(force=True)
+    labels = labels.numpy(force=True)
 
     roc_auc = roc_auc_score(y_true=labels, y_score=predicts)
 
+    return {'roc_auc': roc_auc}
+
+
+def get_edge_classification_metrics(predicts: torch.Tensor, labels: torch.Tensor, label_binarizer=None):
+    """
+    get metrics for the node classification task
+    :param predicts: Tensor, shape (num_samples, num_classes)
+    :param labels: Tensor, shape (num_samples, )
+    :return:
+        dictionary of metrics {'metric_name_1': metric_1, ...}
+    """
+    probs = predicts.softmax(dim=-1).numpy(force=True)
+    predicts = predicts.argmax(dim=-1).numpy(force=True)
+    labels = labels.numpy(force=True)
+    label_bin = label_binarizer.transform(labels) if label_binarizer else None
+
+    report = classification_report(y_true=labels, y_pred=predicts, output_dict=True)
+    roc_auc = roc_auc_score(y_true=label_bin, y_score=probs, average='macro', multi_class='ovo') if label_binarizer else np.nan
+    roc_auc_weighted = roc_auc_score(y_true=label_bin, y_score=probs, average='weighted', multi_class='ovo') if label_binarizer else np.nan
+    bin_average_precision = average_precision_score(y_true=labels, y_score=probs[:, 1])
+    bin_roc_auc = roc_auc_score(y_true=labels, y_score=probs[:, 1])
+
+    print({'roc_auc': roc_auc, 'roc_auc_weighted': roc_auc_weighted, 'bin_average_precision': bin_average_precision, 'bin_roc_auc': bin_roc_auc} | report)
     return {'roc_auc': roc_auc}

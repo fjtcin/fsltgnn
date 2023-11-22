@@ -12,8 +12,8 @@ def get_link_prediction_args(is_evaluation: bool = False):
     # arguments
     parser = argparse.ArgumentParser('Interface for the link prediction task')
     parser.add_argument('--dataset_name', type=str, help='dataset to be used', default='wikipedia',
-                        choices=['wikipedia', 'reddit', 'mooc', 'lastfm', 'enron', 'SocialEvo', 'uci', 'Flights', 'CanParl', 'USLegis', 'UNtrade', 'UNvote', 'Contacts'])
-    parser.add_argument('--batch_size', type=int, default=200, help='batch size')
+                        choices=['wikipedia', 'hyperlink', 'reddit', 'mooc', 'lastfm', 'enron', 'SocialEvo', 'uci', 'Flights', 'CanParl', 'USLegis', 'UNtrade', 'UNvote', 'Contacts'])
+    parser.add_argument('--batch_size', type=int, default=1024, help='batch size')
     parser.add_argument('--model_name', type=str, default='DyGFormer', help='name of the model, note that EdgeBank is only applicable for evaluation',
                         choices=['JODIE', 'DyRep', 'TGAT', 'TGN', 'CAWN', 'EdgeBank', 'TCL', 'GraphMixer', 'DyGFormer'])
     parser.add_argument('--gpu', type=int, default=0, help='number of gpu to use')
@@ -28,7 +28,7 @@ def get_link_prediction_args(is_evaluation: bool = False):
     parser.add_argument('--walk_length', type=int, default=1, help='length of each random walk')
     parser.add_argument('--time_gap', type=int, default=2000, help='time gap for neighbors to compute node features')
     parser.add_argument('--time_feat_dim', type=int, default=100, help='dimension of the time embedding')
-    parser.add_argument('--position_feat_dim', type=int, default=172, help='dimension of the position embedding')
+    parser.add_argument('--position_feat_dim', type=int, default=172, help='dimension of the position embedding in CAWN')
     parser.add_argument('--edge_bank_memory_mode', type=str, default='unlimited_memory', help='how memory of EdgeBank works',
                         choices=['unlimited_memory', 'time_window_memory', 'repeat_threshold_memory'])
     parser.add_argument('--time_window_mode', type=str, default='fixed_proportion', help='how to select the time window size for time window memory',
@@ -44,7 +44,8 @@ def get_link_prediction_args(is_evaluation: bool = False):
     parser.add_argument('--patience', type=int, default=20, help='patience for early stopping')
     parser.add_argument('--val_ratio', type=float, default=0.15, help='ratio of validation set')
     parser.add_argument('--test_ratio', type=float, default=0.15, help='ratio of test set')
-    parser.add_argument('--num_runs', type=int, default=5, help='number of runs')
+    parser.add_argument('--num_runs', type=int, default=1, help='number of runs')
+    parser.add_argument('--seed', type=int, default=0, help='invalid if num_runs > 1')
     parser.add_argument('--test_interval_epochs', type=int, default=10, help='how many epochs to perform testing once')
     parser.add_argument('--negative_sample_strategy', type=str, default='random', choices=['random', 'historical', 'inductive'],
                         help='strategy for the negative edge sampling')
@@ -80,7 +81,7 @@ def load_link_prediction_best_configs(args: argparse.Namespace):
             args.dropout = 0.2
         else:
             args.dropout = 0.1
-        if args.dataset_name in ['reddit', 'CanParl', 'UNtrade']:
+        if args.dataset_name in ['hyperlink', 'reddit', 'CanParl', 'UNtrade']:
             args.sample_neighbor_strategy = 'uniform'
         else:
             args.sample_neighbor_strategy = 'recent'
@@ -243,8 +244,8 @@ def get_node_classification_args():
     """
     # arguments
     parser = argparse.ArgumentParser('Interface for the node classification task')
-    parser.add_argument('--dataset_name', type=str, help='dataset to be used', default='wikipedia', choices=['wikipedia', 'reddit'])
-    parser.add_argument('--batch_size', type=int, default=200, help='batch size')
+    parser.add_argument('--dataset_name', type=str, help='dataset to be used', default='wikipedia', choices=['wikipedia', 'hyperlink', 'reddit'])
+    parser.add_argument('--batch_size', type=int, default=4096, help='batch size')
     parser.add_argument('--model_name', type=str, default='DyGFormer', help='name of the model',
                         choices=['JODIE', 'DyRep', 'TGAT', 'TGN', 'CAWN', 'TCL', 'GraphMixer', 'DyGFormer'])
     parser.add_argument('--gpu', type=int, default=0, help='number of gpu to use')
@@ -259,7 +260,7 @@ def get_node_classification_args():
     parser.add_argument('--walk_length', type=int, default=1, help='length of each random walk')
     parser.add_argument('--time_gap', type=int, default=2000, help='time gap for neighbors to compute node features')
     parser.add_argument('--time_feat_dim', type=int, default=100, help='dimension of the time embedding')
-    parser.add_argument('--position_feat_dim', type=int, default=172, help='dimension of the position embedding')
+    parser.add_argument('--position_feat_dim', type=int, default=172, help='dimension of the position embedding in CAWN')
     parser.add_argument('--patch_size', type=int, default=1, help='patch size')
     parser.add_argument('--channel_embedding_dim', type=int, default=50, help='dimension of each channel embedding')
     parser.add_argument('--max_input_sequence_length', type=int, default=32, help='maximal length of the input sequence of each node')
@@ -271,7 +272,8 @@ def get_node_classification_args():
     parser.add_argument('--patience', type=int, default=20, help='patience for early stopping')
     parser.add_argument('--val_ratio', type=float, default=0.15, help='ratio of validation set')
     parser.add_argument('--test_ratio', type=float, default=0.15, help='ratio of test set')
-    parser.add_argument('--num_runs', type=int, default=5, help='number of runs')
+    parser.add_argument('--num_runs', type=int, default=1, help='number of runs')
+    parser.add_argument('--seed', type=int, default=0, help='invalid if num_runs > 1')
     parser.add_argument('--test_interval_epochs', type=int, default=10, help='how many epochs to perform testing once')
     parser.add_argument('--load_best_configs', action='store_true', default=False, help='whether to load the best configurations')
 
@@ -282,7 +284,6 @@ def get_node_classification_args():
         parser.print_help()
         sys.exit()
 
-    assert args.dataset_name in ['wikipedia', 'reddit'], f'Wrong value for dataset_name {args.dataset_name}!'
     if args.load_best_configs:
         load_node_classification_best_configs(args=args)
 
@@ -300,7 +301,7 @@ def load_node_classification_best_configs(args: argparse.Namespace):
         args.num_neighbors = 20
         args.num_layers = 2
         args.dropout = 0.1
-        if args.dataset_name in ['reddit']:
+        if args.dataset_name in ['hyperlink', 'reddit']:
             args.sample_neighbor_strategy = 'uniform'
         else:
             args.sample_neighbor_strategy = 'recent'

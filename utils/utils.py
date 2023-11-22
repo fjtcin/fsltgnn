@@ -2,6 +2,7 @@ import random
 import torch
 import torch.nn as nn
 import numpy as np
+import os
 
 from utils.DataLoader import Data
 
@@ -15,10 +16,9 @@ def set_random_seed(seed: int = 0):
     random.seed(seed)
     np.random.seed(seed)
     torch.manual_seed(seed)
-    if torch.cuda.is_available():
-        torch.cuda.manual_seed_all(seed)
-    torch.backends.cudnn.deterministic = True
     torch.backends.cudnn.benchmark = False
+    torch.use_deterministic_algorithms(True)
+    os.environ["CUBLAS_WORKSPACE_CONFIG"] = ":4096:8"
 
 
 def convert_to_gpu(*data, device: str):

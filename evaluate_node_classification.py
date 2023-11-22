@@ -47,7 +47,7 @@ if __name__ == "__main__":
 
         set_random_seed(seed=run)
 
-        args.seed = run
+        if args.num_runs > 1: args.seed = run
         args.load_model_name = f'node_classification_{args.model_name}_seed{args.seed}'
         args.save_result_name = f'evaluate_node_classification_{args.model_name}_seed{args.seed}'
 

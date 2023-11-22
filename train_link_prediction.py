@@ -66,7 +66,7 @@ if __name__ == "__main__":
 
         set_random_seed(seed=run)
 
-        args.seed = run
+        if args.num_runs > 1: args.seed = run
         args.save_model_name = f'{args.model_name}_seed{args.seed}'
 
         # set up logger
