@@ -54,7 +54,6 @@ def preprocess_data():
     # Filter df2 to keep only the rows with 'SUBREDDIT' known to the LabelEncoder
     df2 = df2[df2[0].isin(known_subreddits)]
     df2[0] = le.transform(df2[0]) + 1
-    df2 = df2.sort_values(by=0)
 
     df2_array = df2.values
     raw_feats = df2_array[:, 1:]
