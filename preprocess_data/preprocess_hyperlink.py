@@ -26,21 +26,20 @@ def preprocess_data():
     df['TARGET_SUBREDDIT'] = le.transform(df['TARGET_SUBREDDIT']) + 1
 
     df['TIMESTAMP'] = pd.to_datetime(df['TIMESTAMP']).apply(lambda x: int(x.timestamp()))
+    df['LINK_SENTIMENT'].replace(-1, 0, inplace=True)
 
     df.sort_values(by='TIMESTAMP', inplace=True)
 
     edge_feats = df['PROPERTIES'].str.split(',', expand=True).astype(float).values
 
-    # 4. Keep the `LINK_SENTIMENT` and `PROPERTIES` columns
     df.rename(columns={
         'SOURCE_SUBREDDIT': 'u',
         'TARGET_SUBREDDIT': 'i',
         'TIMESTAMP': 'ts',
         'LINK_SENTIMENT': 'label'
     }, inplace=True)
-    df[['u', 'i', 'ts', 'label']].reset_index(drop=True, inplace=True)
-
-    df['label'] = df['label'].replace(-1, 0)
+    df = df[['u', 'i', 'ts', 'label']]
+    df.reset_index(drop=True, inplace=True)
     df['idx'] = df.index + 1
 
     # edge feature for zero index, which is not used (since edge id starts from 1)
