@@ -6,12 +6,12 @@ from sklearn.preprocessing import LabelEncoder
 
 
 def preprocess_data():
-    Path("../processed_data/hyperlink/").mkdir(parents=True, exist_ok=True)
-    EDGE_PATH = '../DG_data/hyperlink/soc-redditHyperlinks-body.tsv'
-    NODE_PATH = '../DG_data/hyperlink/web-redditEmbeddings-subreddits.csv'
-    OUT_DF = '../processed_data/hyperlink/ml_hyperlink.csv'
-    OUT_FEAT = '../processed_data/hyperlink/ml_hyperlink.npy'
-    OUT_NODE_FEAT = '../processed_data/hyperlink/ml_hyperlink_node.npy'
+    Path("processed_data/hyperlink/").mkdir(parents=True, exist_ok=True)
+    EDGE_PATH = 'DG_data/hyperlink/soc-redditHyperlinks-body.tsv'
+    NODE_PATH = 'DG_data/hyperlink/web-redditEmbeddings-subreddits.csv'
+    OUT_DF = 'processed_data/hyperlink/ml_hyperlink.csv'
+    OUT_FEAT = 'processed_data/hyperlink/ml_hyperlink.npy'
+    OUT_NODE_FEAT = 'processed_data/hyperlink/ml_hyperlink_node.npy'
 
     df = pd.read_csv(EDGE_PATH, sep='\t')
 
