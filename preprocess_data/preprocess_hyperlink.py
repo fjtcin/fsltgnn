@@ -27,18 +27,18 @@ def preprocess_data():
 
     df['TIMESTAMP'] = pd.to_datetime(df['TIMESTAMP']).apply(lambda x: int(x.timestamp()))
 
-    df = df.sort_values(by='TIMESTAMP')
+    df.sort_values(by='TIMESTAMP', inplace=True)
 
     edge_feats = df['PROPERTIES'].str.split(',', expand=True).astype(float).values
 
     # 4. Keep the `LINK_SENTIMENT` and `PROPERTIES` columns
-    df = df.rename(columns={
+    df.rename(columns={
         'SOURCE_SUBREDDIT': 'u',
         'TARGET_SUBREDDIT': 'i',
         'TIMESTAMP': 'ts',
         'LINK_SENTIMENT': 'label'
-    })
-    df = df[['u', 'i', 'ts', 'label']].reset_index(drop=True)
+    }, inplace=True)
+    df[['u', 'i', 'ts', 'label']].reset_index(drop=True, inplace=True)
 
     df['label'] = df['label'].replace(-1, 0)
     df['idx'] = df.index + 1
