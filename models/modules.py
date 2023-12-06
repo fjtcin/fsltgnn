@@ -112,8 +112,9 @@ class EdgeClassifier(nn.Module):
         super().__init__()
         model.eval()
         unique_labels = np.unique(train_data.labels)
-        self.label_binarizer = MyLabelBinarizer(len(unique_labels))
-        prototypical_edges_lst = [torch.zeros(1).to(args.device)] * len(unique_labels)
+        num_labels = len(unique_labels)
+        self.label_binarizer = MyLabelBinarizer(num_labels)
+        self.prototypical_edges = count_nodes_for_each_label = None
         train_idx_data_loader_tqdm = tqdm(train_idx_data_loader, ncols=120)
         for batch_idx, train_data_indices in enumerate(train_idx_data_loader_tqdm):
             batch_src_node_ids, batch_dst_node_ids, batch_node_interact_times, batch_edge_ids, batch_labels = \
@@ -128,12 +129,20 @@ class EdgeClassifier(nn.Module):
                                                                                     num_neighbors=args.num_neighbors)
             train_idx_data_loader_tqdm.set_description(f'calculating prototypical embeddings for the {batch_idx + 1}-th batch')
             batch_edge_embeddings = torch.hstack((batch_src_node_embeddings, batch_dst_node_embeddings))
-            for i, label in enumerate(unique_labels):
-                edge_indices = np.where(batch_labels == label)[0]
-                edge_data = batch_edge_embeddings[edge_indices]
-                prototypical_edges_lst[i] = prototypical_edges_lst[i] + edge_data.mean(dim=0) * len(train_data_indices) / args.batch_size
 
-        self.prototypical_edges = torch.vstack(prototypical_edges_lst) / (batch_idx + 1)
+            num_batch_nodes = len(train_data_indices)
+            mask = torch.zeros(num_labels, num_batch_nodes).to(args.device)
+            mask[batch_labels, torch.arange(num_batch_nodes)] = 1
+            sum_features_for_each_label = mask @ batch_edge_embeddings
+
+            if count_nodes_for_each_label is None:
+                count_nodes_for_each_label = torch.zeros(mask.shape[0], 1).to(args.device)
+            count_nodes_for_each_label += torch.sum(mask, dim=1, keepdim=True)
+            if self.prototypical_edges is None:
+                self.prototypical_edges = torch.zeros_like(sum_features_for_each_label).to(args.device)
+            self.prototypical_edges += sum_features_for_each_label
+
+        self.prototypical_edges /= count_nodes_for_each_label
         # torch.save(self.prototypical_edges, f'./saved_results/{args.model_name}/{args.dataset_name}/prototypical_edges.pt')
         # self.prototypical_edges = torch.load(f'./saved_results/{args.model_name}/{args.dataset_name}/prototypical_edges.pt')
         self.prompts = nn.Parameter(torch.ones(1, self.prototypical_edges.shape[1]).to(args.device))
@@ -147,7 +156,7 @@ class EdgeClassifier(nn.Module):
         """
         # Tensor, shape (*, input_dim1 + input_dim2)
         x = torch.cat([input_1, input_2], dim=1)
-        return x * normalize(self.prompts) @ self.prototypical_edges.T
+        return (normalize(x) * self.prompts) @ (normalize(self.prototypical_edges) * self.prompts).T
 
 
 class MultiHeadAttention(nn.Module):
