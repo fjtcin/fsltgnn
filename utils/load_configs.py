@@ -12,7 +12,7 @@ def get_link_prediction_args(is_evaluation: bool = False):
     # arguments
     parser = argparse.ArgumentParser('Interface for the link prediction task')
     parser.add_argument('--dataset_name', type=str, help='dataset to be used', default='wikipedia',
-                        choices=['wikipedia', 'hyperlink', 'reddit', 'mooc', 'lastfm', 'enron', 'SocialEvo', 'uci', 'Flights', 'CanParl', 'USLegis', 'UNtrade', 'UNvote', 'Contacts'])
+                        choices=['wikipedia', 'f2f', 'mooc', 'bitcoinalpha', 'bitcoinotc', 'hyperlink', 'reddit', 'mooc', 'lastfm', 'enron', 'SocialEvo', 'uci', 'Flights', 'CanParl', 'USLegis', 'UNtrade', 'UNvote', 'Contacts'])
     parser.add_argument('--batch_size', type=int, default=1024, help='batch size')
     parser.add_argument('--model_name', type=str, default='DyGFormer', help='name of the model, note that EdgeBank is only applicable for evaluation',
                         choices=['JODIE', 'DyRep', 'TGAT', 'TGN', 'CAWN', 'EdgeBank', 'TCL', 'GraphMixer', 'DyGFormer'])
@@ -81,7 +81,7 @@ def load_link_prediction_best_configs(args: argparse.Namespace):
             args.dropout = 0.2
         else:
             args.dropout = 0.1
-        if args.dataset_name in ['hyperlink', 'reddit', 'CanParl', 'UNtrade']:
+        if args.dataset_name in ['f2f', 'mooc', 'bitcoinalpha', 'bitcoinotc', 'hyperlink', 'reddit', 'CanParl', 'UNtrade']:
             args.sample_neighbor_strategy = 'uniform'
         else:
             args.sample_neighbor_strategy = 'recent'
@@ -244,7 +244,7 @@ def get_node_classification_args():
     """
     # arguments
     parser = argparse.ArgumentParser('Interface for the node classification task')
-    parser.add_argument('--dataset_name', type=str, help='dataset to be used', default='wikipedia', choices=['wikipedia', 'hyperlink', 'reddit'])
+    parser.add_argument('--dataset_name', type=str, help='dataset to be used', default='wikipedia', choices=['wikipedia', 'f2f', 'mooc', 'bitcoinalpha', 'bitcoinotc', 'hyperlink', 'reddit'])
     parser.add_argument('--batch_size', type=int, default=4096, help='batch size')
     parser.add_argument('--model_name', type=str, default='DyGFormer', help='name of the model',
                         choices=['JODIE', 'DyRep', 'TGAT', 'TGN', 'CAWN', 'TCL', 'GraphMixer', 'DyGFormer'])
@@ -301,7 +301,7 @@ def load_node_classification_best_configs(args: argparse.Namespace):
         args.num_neighbors = 20
         args.num_layers = 2
         args.dropout = 0.1
-        if args.dataset_name in ['hyperlink', 'reddit']:
+        if args.dataset_name in ['f2f', 'mooc', 'bitcoinalpha', 'bitcoinotc', 'hyperlink', 'reddit']:
             args.sample_neighbor_strategy = 'uniform'
         else:
             args.sample_neighbor_strategy = 'recent'

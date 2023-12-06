@@ -52,8 +52,6 @@ def get_edge_classification_metrics(predicts: torch.Tensor, labels: torch.Tensor
     report = classification_report(y_true=labels, y_pred=predicts, output_dict=True)
     roc_auc = roc_auc_score(y_true=label_bin, y_score=probs, average='macro', multi_class='ovo') if label_binarizer else np.nan
     roc_auc_weighted = roc_auc_score(y_true=label_bin, y_score=probs, average='weighted', multi_class='ovo') if label_binarizer else np.nan
-    bin_average_precision = average_precision_score(y_true=labels, y_score=probs[:, 1])
-    bin_roc_auc = roc_auc_score(y_true=labels, y_score=probs[:, 1])
 
-    print({'roc_auc': roc_auc, 'roc_auc_weighted': roc_auc_weighted, 'bin_average_precision': bin_average_precision, 'bin_roc_auc': bin_roc_auc} | report)
-    return {'roc_auc': roc_auc}
+    print({'roc_auc': roc_auc, 'roc_auc_weighted': roc_auc_weighted} | report)
+    return {'accuracy': report['accuracy']}
