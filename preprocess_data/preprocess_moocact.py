@@ -13,13 +13,13 @@ def print_erroneous_df(edf):
 
 
 def preprocess_data(node_feat_dim):
-    Path("processed_data/mooc/").mkdir(parents=True, exist_ok=True)
-    GRAPH_PATH = 'DG_data/mooc/mooc_actions.tsv'
-    EDGE_PATH = 'DG_data/mooc/mooc_action_features.tsv'
-    LABEL_PATH = 'DG_data/mooc/mooc_action_labels.tsv'
-    OUT_DF = 'processed_data/mooc/ml_mooc.csv'
-    OUT_FEAT = 'processed_data/mooc/ml_mooc.npy'
-    OUT_NODE_FEAT = 'processed_data/mooc/ml_mooc_node.npy'
+    Path("processed_data/moocact/").mkdir(parents=True, exist_ok=True)
+    GRAPH_PATH = 'DG_data/moocact/mooc_actions.tsv'
+    EDGE_PATH = 'DG_data/moocact/mooc_action_features.tsv'
+    LABEL_PATH = 'DG_data/moocact/mooc_action_labels.tsv'
+    OUT_DF = 'processed_data/moocact/ml_moocact.csv'
+    OUT_FEAT = 'processed_data/moocact/ml_moocact.npy'
+    OUT_NODE_FEAT = 'processed_data/moocact/ml_moocact_node.npy'
 
     df = pd.read_csv(GRAPH_PATH, sep='\t')
     df2 = pd.read_csv(EDGE_PATH, sep='\t')
