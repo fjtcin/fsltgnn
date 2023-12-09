@@ -5,3 +5,5 @@ python evaluate_node_classification.py --dataset_name wikipedia --model_name TGA
 
 python train_link_prediction.py --dataset_name hyperlink --model_name TGAT --load_best_configs --seed 0
 python train_edge_classification.py --dataset_name hyperlink --model_name TGAT --load_best_configs --seed 0
+
+python train_link_prediction.py --dataset_name bitcoinalpha --model_name TGAT --load_best_configs --seed 0 --batch_size 1300
