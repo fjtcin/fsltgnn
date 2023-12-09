@@ -158,11 +158,43 @@ class EdgeClassifier(nn.Module):
                     self.train_data.edge_ids[train_data_indices], self.train_data.labels[train_data_indices]
 
             with torch.no_grad():
-                batch_src_node_embeddings, batch_dst_node_embeddings = \
-                                    model.compute_src_dst_node_temporal_embeddings(src_node_ids=batch_src_node_ids,
-                                                                                    dst_node_ids=batch_dst_node_ids,
-                                                                                    node_interact_times=batch_node_interact_times,
-                                                                                    num_neighbors=self.args.num_neighbors)
+                if self.args.model_name in ['TGAT', 'CAWN', 'TCL']:
+                    # get temporal embedding of source and destination nodes
+                    # two Tensors, with shape (batch_size, node_feat_dim)
+                    batch_src_node_embeddings, batch_dst_node_embeddings = \
+                        model.compute_src_dst_node_temporal_embeddings(src_node_ids=batch_src_node_ids,
+                                                                            dst_node_ids=batch_dst_node_ids,
+                                                                            node_interact_times=batch_node_interact_times,
+                                                                            num_neighbors=self.args.num_neighbors)
+                elif self.args.model_name in ['JODIE', 'DyRep', 'TGN']:
+                    # get temporal embedding of source and destination nodes
+                    # two Tensors, with shape (batch_size, node_feat_dim)
+                    batch_src_node_embeddings, batch_dst_node_embeddings = \
+                        model.compute_src_dst_node_temporal_embeddings(src_node_ids=batch_src_node_ids,
+                                                                            dst_node_ids=batch_dst_node_ids,
+                                                                            node_interact_times=batch_node_interact_times,
+                                                                            edge_ids=batch_edge_ids,
+                                                                            edges_are_positive=True,
+                                                                            num_neighbors=self.args.num_neighbors)
+                elif self.args.model_name in ['GraphMixer']:
+                    # get temporal embedding of source and destination nodes
+                    # two Tensors, with shape (batch_size, node_feat_dim)
+                    batch_src_node_embeddings, batch_dst_node_embeddings = \
+                        model.compute_src_dst_node_temporal_embeddings(src_node_ids=batch_src_node_ids,
+                                                                            dst_node_ids=batch_dst_node_ids,
+                                                                            node_interact_times=batch_node_interact_times,
+                                                                            num_neighbors=self.args.num_neighbors,
+                                                                            time_gap=self.args.time_gap)
+                elif self.args.model_name in ['DyGFormer']:
+                    # get temporal embedding of source and destination nodes
+                    # two Tensors, with shape (batch_size, node_feat_dim)
+                    batch_src_node_embeddings, batch_dst_node_embeddings = \
+                        model.compute_src_dst_node_temporal_embeddings(src_node_ids=batch_src_node_ids,
+                                                                            dst_node_ids=batch_dst_node_ids,
+                                                                            node_interact_times=batch_node_interact_times)
+                else:
+                    raise ValueError(f"Wrong value for model_name {self.args.model_name}!")
+
             batch_edge_embeddings = torch.hstack((batch_src_node_embeddings, batch_dst_node_embeddings))
             p = self.prompts + self.positional_encoding(batch_node_interact_times, self.prompts.shape[1]) * self.lamb
             batch_edge_embeddings = normalize(batch_edge_embeddings) * p
