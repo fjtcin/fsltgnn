@@ -267,6 +267,7 @@ def evaluate_model_edge_classification(model_name: str, model: nn.Module, neighb
         evaluate_total_loss, evaluate_y_trues, evaluate_y_predicts = 0.0, [], []
         evaluate_idx_data_loader_tqdm = tqdm(evaluate_idx_data_loader, ncols=120)
         for batch_idx, evaluate_data_indices in enumerate(evaluate_idx_data_loader_tqdm):
+            model[1].prototypical_encoding(model[0])
             evaluate_data_indices = evaluate_data_indices.numpy()
             batch_src_node_ids, batch_dst_node_ids, batch_node_interact_times, batch_edge_ids, batch_labels = \
                 evaluate_data.src_node_ids[evaluate_data_indices],  evaluate_data.dst_node_ids[evaluate_data_indices], \
@@ -309,7 +310,7 @@ def evaluate_model_edge_classification(model_name: str, model: nn.Module, neighb
             else:
                 raise ValueError(f"Wrong value for model_name {model_name}!")
             # get predicted probabilities, shape (batch_size, )
-            predicts = model[1](input_1=batch_src_node_embeddings, input_2=batch_dst_node_embeddings)
+            predicts = model[1](input_1=batch_src_node_embeddings, input_2=batch_dst_node_embeddings, times=batch_node_interact_times)
             labels = torch.from_numpy(batch_labels).to(predicts.device)
 
             loss = loss_func(input=predicts, target=labels)

@@ -122,8 +122,7 @@ if __name__ == "__main__":
         early_stopping.load_checkpoint(model, map_location='cpu')
 
         # create the model for the node classification task
-        model = convert_to_gpu(model, device=args.device)
-        edge_classifier = EdgeClassifier(args, model[0], train_data, train_idx_data_loader)
+        edge_classifier = EdgeClassifier(args, train_data, train_idx_data_loader, prompt_dim=2*node_raw_features.shape[1])
         model = nn.Sequential(model[0], edge_classifier)
         logger.info(f'model -> {model}')
         logger.info(f'model name: {args.model_name}, #parameters: {get_parameter_sizes(model) * 4} B, '
@@ -167,6 +166,7 @@ if __name__ == "__main__":
             train_total_loss, train_y_trues, train_y_predicts = 0.0, [], []
             train_idx_data_loader_tqdm = tqdm(train_idx_data_loader, ncols=120)
             for batch_idx, train_data_indices in enumerate(train_idx_data_loader_tqdm):
+                model[1].prototypical_encoding(model[0])
                 train_data_indices = train_data_indices.numpy()
                 batch_src_node_ids, batch_dst_node_ids, batch_node_interact_times, batch_edge_ids, batch_labels = \
                     train_data.src_node_ids[train_data_indices], train_data.dst_node_ids[train_data_indices], train_data.node_interact_times[train_data_indices], \
@@ -210,7 +210,7 @@ if __name__ == "__main__":
                     else:
                         raise ValueError(f"Wrong value for model_name {args.model_name}!")
                 # get predicted probabilities, shape (batch_size, )
-                predicts = model[1](input_1=batch_src_node_embeddings, input_2=batch_dst_node_embeddings)
+                predicts = model[1](input_1=batch_src_node_embeddings, input_2=batch_dst_node_embeddings, times=batch_node_interact_times)
                 labels = torch.from_numpy(batch_labels).to(predicts.device)
 
                 loss = loss_func(input=predicts, target=labels)

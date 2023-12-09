@@ -106,48 +106,18 @@ class MLPClassifier(nn.Module):
 
 
 from torch.nn.functional import normalize
-from tqdm import tqdm
 class EdgeClassifier(nn.Module):
-    def __init__(self, args, model, train_data, train_idx_data_loader):
+    def __init__(self, args, train_data, train_idx_data_loader, prompt_dim, lamb=0):
         super().__init__()
-        model.eval()
-        unique_labels = np.unique(train_data.labels)
-        num_labels = len(unique_labels)
-        self.label_binarizer = MyLabelBinarizer(num_labels)
-        self.prototypical_edges = count_nodes_for_each_label = None
-        train_idx_data_loader_tqdm = tqdm(train_idx_data_loader, ncols=120)
-        for batch_idx, train_data_indices in enumerate(train_idx_data_loader_tqdm):
-            batch_src_node_ids, batch_dst_node_ids, batch_node_interact_times, batch_edge_ids, batch_labels = \
-                    train_data.src_node_ids[train_data_indices], train_data.dst_node_ids[train_data_indices], train_data.node_interact_times[train_data_indices], \
-                    train_data.edge_ids[train_data_indices], train_data.labels[train_data_indices]
+        self.lamb = lamb
+        self.args = args
+        self.train_data = train_data
+        self.train_idx_data_loader = train_idx_data_loader
+        self.num_labels = len(np.unique(train_data.labels))
+        self.label_binarizer = MyLabelBinarizer(self.num_labels)
+        self.prompts = nn.Parameter(torch.ones(1, prompt_dim).to(args.device))
 
-            with torch.no_grad():
-                batch_src_node_embeddings, batch_dst_node_embeddings = \
-                                    model.compute_src_dst_node_temporal_embeddings(src_node_ids=batch_src_node_ids,
-                                                                                    dst_node_ids=batch_dst_node_ids,
-                                                                                    node_interact_times=batch_node_interact_times,
-                                                                                    num_neighbors=args.num_neighbors)
-            train_idx_data_loader_tqdm.set_description(f'calculating prototypical embeddings for the {batch_idx + 1}-th batch')
-            batch_edge_embeddings = torch.hstack((batch_src_node_embeddings, batch_dst_node_embeddings))
-
-            num_batch_nodes = len(train_data_indices)
-            mask = torch.zeros(num_labels, num_batch_nodes).to(args.device)
-            mask[batch_labels, torch.arange(num_batch_nodes)] = 1
-            sum_features_for_each_label = mask @ batch_edge_embeddings
-
-            if count_nodes_for_each_label is None:
-                count_nodes_for_each_label = torch.zeros(mask.shape[0], 1).to(args.device)
-            count_nodes_for_each_label += torch.sum(mask, dim=1, keepdim=True)
-            if self.prototypical_edges is None:
-                self.prototypical_edges = torch.zeros_like(sum_features_for_each_label).to(args.device)
-            self.prototypical_edges += sum_features_for_each_label
-
-        self.prototypical_edges /= count_nodes_for_each_label
-        # torch.save(self.prototypical_edges, f'./saved_results/{args.model_name}/{args.dataset_name}/prototypical_edges.pt')
-        # self.prototypical_edges = torch.load(f'./saved_results/{args.model_name}/{args.dataset_name}/prototypical_edges.pt')
-        self.prompts = nn.Parameter(torch.ones(1, self.prototypical_edges.shape[1]).to(args.device))
-
-    def forward(self, input_1: torch.Tensor, input_2: torch.Tensor):
+    def forward(self, input_1: torch.Tensor, input_2: torch.Tensor, times: np.ndarray):
         """
         merge and project the inputs
         :param input_1: Tensor, shape (*, input_dim1)
@@ -156,7 +126,56 @@ class EdgeClassifier(nn.Module):
         """
         # Tensor, shape (*, input_dim1 + input_dim2)
         x = torch.cat([input_1, input_2], dim=1)
-        return (normalize(x) * self.prompts) @ (normalize(self.prototypical_edges) * self.prompts).T
+        p = self.prompts + self.positional_encoding(times, self.prompts.shape[1]) * self.lamb
+        return (normalize(x) * p) @ self.prototypical_edges.T
+
+    # def positional_encoding(self, times, d_model):
+    #     batch_size = times.shape[0]
+    #     PE = torch.zeros(batch_size, d_model)
+    #     for b in range(batch_size):
+    #         for i in range(0, d_model, 2):
+    #             PE[b, i] = math.sin(times[b] / (10000 ** ((2 * i) / d_model)))
+    #             if i + 1 < d_model:
+    #                 PE[b, i + 1] = math.cos(times[b] / (10000 ** ((2 * i) / d_model)))
+    #     return PE
+
+    def positional_encoding(self, times: torch.Tensor, d_model: int):
+        times = torch.from_numpy(times).float().unsqueeze(1).to(self.args.device)
+        positions = torch.arange(d_model).unsqueeze(0).to(self.args.device)
+        div_term = torch.pow(10000.0, -2 * positions / d_model)
+        encoded = times * div_term
+        encoded[:, 0::2] = torch.sin(encoded[:, 0::2])  # apply sin to even indices in the tensor; 2i
+        encoded[:, 1::2] = torch.cos(encoded[:, 1::2])  # apply cos to odd indices in the tensor; 2i+1
+        return encoded
+
+    def prototypical_encoding(self, model):
+        self.prototypical_edges = torch.zeros(self.num_labels, self.prompts.shape[1]).to(self.args.device)
+        count_nodes_for_each_label = torch.zeros(self.num_labels, 1).to(self.args.device)
+
+        for batch_idx, train_data_indices in enumerate(self.train_idx_data_loader):
+            batch_src_node_ids, batch_dst_node_ids, batch_node_interact_times, batch_edge_ids, batch_labels = \
+                    self.train_data.src_node_ids[train_data_indices], self.train_data.dst_node_ids[train_data_indices], self.train_data.node_interact_times[train_data_indices], \
+                    self.train_data.edge_ids[train_data_indices], self.train_data.labels[train_data_indices]
+
+            with torch.no_grad():
+                batch_src_node_embeddings, batch_dst_node_embeddings = \
+                                    model.compute_src_dst_node_temporal_embeddings(src_node_ids=batch_src_node_ids,
+                                                                                    dst_node_ids=batch_dst_node_ids,
+                                                                                    node_interact_times=batch_node_interact_times,
+                                                                                    num_neighbors=self.args.num_neighbors)
+            batch_edge_embeddings = torch.hstack((batch_src_node_embeddings, batch_dst_node_embeddings))
+            p = self.prompts + self.positional_encoding(batch_node_interact_times, self.prompts.shape[1]) * self.lamb
+            batch_edge_embeddings = normalize(batch_edge_embeddings) * p
+
+            num_batch_nodes = len(train_data_indices)
+            mask = torch.zeros(self.num_labels, num_batch_nodes).to(self.args.device)
+            mask[batch_labels, torch.arange(num_batch_nodes)] = 1
+            sum_features_for_each_label = mask @ batch_edge_embeddings
+
+            count_nodes_for_each_label += torch.sum(mask, dim=1, keepdim=True)
+            self.prototypical_edges += sum_features_for_each_label
+
+        self.prototypical_edges /= count_nodes_for_each_label
 
 
 class MultiHeadAttention(nn.Module):

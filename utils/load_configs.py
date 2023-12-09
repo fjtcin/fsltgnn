@@ -13,7 +13,7 @@ def get_link_prediction_args(is_evaluation: bool = False):
     parser = argparse.ArgumentParser('Interface for the link prediction task')
     parser.add_argument('--dataset_name', type=str, help='dataset to be used', default='wikipedia',
                         choices=['wikipedia', 'f2f', 'mooc', 'bitcoinalpha', 'bitcoinotc', 'hyperlink', 'reddit', 'mooc', 'lastfm', 'enron', 'SocialEvo', 'uci', 'Flights', 'CanParl', 'USLegis', 'UNtrade', 'UNvote', 'Contacts'])
-    parser.add_argument('--batch_size', type=int, default=1024, help='batch size')
+    parser.add_argument('--batch_size', type=int, default=800, help='batch size')
     parser.add_argument('--model_name', type=str, default='DyGFormer', help='name of the model, note that EdgeBank is only applicable for evaluation',
                         choices=['JODIE', 'DyRep', 'TGAT', 'TGN', 'CAWN', 'EdgeBank', 'TCL', 'GraphMixer', 'DyGFormer'])
     parser.add_argument('--gpu', type=int, default=0, help='number of gpu to use')
@@ -245,7 +245,7 @@ def get_node_classification_args():
     # arguments
     parser = argparse.ArgumentParser('Interface for the node classification task')
     parser.add_argument('--dataset_name', type=str, help='dataset to be used', default='wikipedia', choices=['wikipedia', 'f2f', 'mooc', 'bitcoinalpha', 'bitcoinotc', 'hyperlink', 'reddit'])
-    parser.add_argument('--batch_size', type=int, default=4096, help='batch size')
+    parser.add_argument('--batch_size', type=int, default=3200, help='batch size')
     parser.add_argument('--model_name', type=str, default='DyGFormer', help='name of the model',
                         choices=['JODIE', 'DyRep', 'TGAT', 'TGN', 'CAWN', 'TCL', 'GraphMixer', 'DyGFormer'])
     parser.add_argument('--gpu', type=int, default=0, help='number of gpu to use')
@@ -271,7 +271,7 @@ def get_node_classification_args():
     parser.add_argument('--weight_decay', type=float, default=0.0, help='weight decay')
     parser.add_argument('--patience', type=int, default=20, help='patience for early stopping')
     parser.add_argument('--val_ratio', type=float, default=0.15, help='ratio of validation set')
-    parser.add_argument('--test_ratio', type=float, default=0.15, help='ratio of test set')
+    parser.add_argument('--test_ratio', type=float, default=0.7, help='ratio of test set')
     parser.add_argument('--num_runs', type=int, default=1, help='number of runs')
     parser.add_argument('--seed', type=int, default=0, help='invalid if num_runs > 1')
     parser.add_argument('--test_interval_epochs', type=int, default=10, help='how many epochs to perform testing once')
