@@ -105,7 +105,6 @@ class MLPClassifier(nn.Module):
         return self.fc3(x)
 
 
-from torch.nn.functional import normalize
 class EdgeClassifier(nn.Module):
     def __init__(self, args, train_data, train_idx_data_loader, prompt_dim, lamb=0):
         super().__init__()
@@ -117,6 +116,9 @@ class EdgeClassifier(nn.Module):
         self.label_binarizer = MyLabelBinarizer(self.num_labels)
         self.prompts = nn.Parameter(torch.ones(1, prompt_dim).to(args.device))
 
+    def out(self, input):
+        return input.std()
+
     def forward(self, input_1: torch.Tensor, input_2: torch.Tensor, times: np.ndarray):
         """
         merge and project the inputs
@@ -127,7 +129,7 @@ class EdgeClassifier(nn.Module):
         # Tensor, shape (*, input_dim1 + input_dim2)
         x = torch.cat([input_1, input_2], dim=1)
         p = self.prompts + self.positional_encoding(times, self.prompts.shape[1]) * self.lamb
-        return (normalize(x) * p) @ self.prototypical_edges.T
+        return F.normalize((self.out(x) * p), dim=1) @ self.prototypical_edges.T
 
     # def positional_encoding(self, times, d_model):
     #     batch_size = times.shape[0]
@@ -150,7 +152,7 @@ class EdgeClassifier(nn.Module):
 
     def prototypical_encoding(self, model):
         self.prototypical_edges = torch.zeros(self.num_labels, self.prompts.shape[1]).to(self.args.device)
-        count_nodes_for_each_label = torch.zeros(self.num_labels, 1).to(self.args.device)
+        # count_nodes_for_each_label = torch.zeros(self.num_labels, 1).to(self.args.device)
 
         for batch_idx, train_data_indices in enumerate(self.train_idx_data_loader):
             batch_src_node_ids, batch_dst_node_ids, batch_node_interact_times, batch_edge_ids, batch_labels = \
@@ -197,17 +199,17 @@ class EdgeClassifier(nn.Module):
 
             batch_edge_embeddings = torch.hstack((batch_src_node_embeddings, batch_dst_node_embeddings))
             p = self.prompts + self.positional_encoding(batch_node_interact_times, self.prompts.shape[1]) * self.lamb
-            batch_edge_embeddings = normalize(batch_edge_embeddings) * p
+            batch_edge_embeddings = self.out(batch_edge_embeddings) * p
 
             num_batch_nodes = len(train_data_indices)
             mask = torch.zeros(self.num_labels, num_batch_nodes).to(self.args.device)
             mask[batch_labels, torch.arange(num_batch_nodes)] = 1
             sum_features_for_each_label = mask @ batch_edge_embeddings
 
-            count_nodes_for_each_label += torch.sum(mask, dim=1, keepdim=True)
+            # count_nodes_for_each_label += torch.sum(mask, dim=1, keepdim=True)
             self.prototypical_edges += sum_features_for_each_label
 
-        self.prototypical_edges /= count_nodes_for_each_label
+        self.prototypical_edges = F.normalize(self.prototypical_edges, dim=1)
 
 
 class MultiHeadAttention(nn.Module):
