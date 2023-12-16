@@ -17,7 +17,8 @@ def set_random_seed(seed: int = 0):
     np.random.seed(seed)
     torch.manual_seed(seed)
     torch.backends.cudnn.benchmark = False
-    torch.use_deterministic_algorithms(True)
+    # torch.use_deterministic_algorithms(True)  # https://github.com/pytorch/pytorch/issues/79987 PyTorch bug
+    torch.backends.cudnn.deterministic = True  # use this instead the above line since the bug
     os.environ["CUBLAS_WORKSPACE_CONFIG"] = ":4096:8"
 
 

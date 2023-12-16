@@ -109,7 +109,6 @@ def load_link_prediction_best_configs(args: argparse.Namespace):
             else:
                 args.dropout = 0.1
         else:
-            assert args.model_name == 'TGN'
             if args.dataset_name in ['mooc', 'UNtrade']:
                 args.dropout = 0.2
             elif args.dataset_name in ['lastfm', 'CanParl']:
@@ -268,7 +267,7 @@ def get_node_classification_args():
     parser.add_argument('--patch_size', type=int, default=1, help='patch size')
     parser.add_argument('--channel_embedding_dim', type=int, default=50, help='dimension of each channel embedding')
     parser.add_argument('--max_input_sequence_length', type=int, default=32, help='maximal length of the input sequence of each node')
-    parser.add_argument('--learning_rate', type=float, default=0.0001, help='learning rate')
+    parser.add_argument('--learning_rate', type=float, default=0.001, help='learning rate')
     parser.add_argument('--dropout', type=float, default=0.1, help='dropout rate')
     parser.add_argument('--num_epochs', type=int, default=100, help='number of epochs')
     parser.add_argument('--optimizer', type=str, default='Adam', choices=['SGD', 'Adam', 'RMSprop'], help='name of optimizer')
@@ -331,6 +330,8 @@ def load_node_classification_best_configs(args: argparse.Namespace):
         args.num_layers = 2
         if args.dataset_name in ['reddit']:
             args.num_neighbors = 10
+        elif args.dataset_name in ['bitcoinalpha']:
+            args.num_neighbors = 20
         else:
             args.num_neighbors = 30
         args.dropout = 0.5
