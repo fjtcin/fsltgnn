@@ -105,6 +105,40 @@ class MLPClassifier(nn.Module):
         return self.fc3(x)
 
 
+class EdgeClassifierBaseline(nn.Module):
+    def __init__(self, input_dim1: int, input_dim2: int, hidden_dim: int, output_dim: int, dropout: float = 0.1):
+        """
+        Merge Layer to merge two inputs via: input_dim1 + input_dim2 -> hidden_dim -> output_dim.
+        :param input_dim1: int, dimension of first input
+        :param input_dim2: int, dimension of the second input
+        :param hidden_dim: int, hidden dimension
+        :param output_dim: int, dimension of the output
+        """
+        super().__init__()
+        self.label_binarizer = MyLabelBinarizer(output_dim)
+
+        self.fc1 = nn.Linear(input_dim1 + input_dim2, hidden_dim)
+        self.fc2 = nn.Linear(hidden_dim, output_dim)
+        self.act = nn.ReLU()
+        self.dropout = nn.Dropout(dropout)
+
+    def forward(self, input_1: torch.Tensor, input_2: torch.Tensor, times: np.ndarray):
+        """
+        merge and project the inputs
+        :param input_1: Tensor, shape (*, input_dim1)
+        :param input_2: Tensor, shape (*, input_dim2)
+        :return:
+        """
+        # Tensor, shape (*, input_dim1 + input_dim2)
+        x = torch.cat([input_1, input_2], dim=1)
+        # Tensor, shape (*, output_dim)
+        h = self.fc2(self.dropout(self.act(self.fc1(x))))
+        return h
+
+    def prototypical_encoding(self, x):
+        pass
+
+
 class EdgeClassifier(nn.Module):
     def __init__(self, args, train_data, train_idx_data_loader, prompt_dim, lamb=0):
         super().__init__()
@@ -112,7 +146,7 @@ class EdgeClassifier(nn.Module):
         self.args = args
         self.train_data = train_data
         self.train_idx_data_loader = train_idx_data_loader
-        self.num_labels = len(np.unique(train_data.labels))
+        self.num_labels = train_data.labels.max().item() + 1
         self.label_binarizer = MyLabelBinarizer(self.num_labels)
         self.prompts = nn.Parameter(torch.ones(1, prompt_dim).to(args.device))
 
