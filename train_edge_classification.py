@@ -53,7 +53,7 @@ if __name__ == "__main__":
 
         if args.num_runs > 1: args.seed = run
         args.load_model_name = f'{args.model_name}_seed{args.seed}'
-        args.save_model_name = f'edge_classification_{args.model_name}_seed{args.seed}'
+        args.save_model_name = f'edge_classification_seed{args.seed}'
 
         # set up logger
         logging.basicConfig(level=logging.INFO)
@@ -142,6 +142,10 @@ if __name__ == "__main__":
         shutil.rmtree(save_model_folder, ignore_errors=True)
         os.makedirs(save_model_folder, exist_ok=True)
 
+        save_result_folder = f"./saved_results/{args.model_name}/{args.dataset_name}/{args.save_model_name}/"
+        shutil.rmtree(save_result_folder, ignore_errors=True)
+        os.makedirs(save_result_folder, exist_ok=True)
+
         early_stopping = EarlyStopping(patience=args.patience, save_model_folder=save_model_folder,
                                        save_model_name=args.save_model_name, logger=logger, model_name=args.model_name)
 
@@ -228,7 +232,7 @@ if __name__ == "__main__":
             train_y_trues = torch.cat(train_y_trues, dim=0)
             train_y_predicts = torch.cat(train_y_predicts, dim=0)
 
-            train_metrics = get_edge_classification_metrics(predicts=train_y_predicts, labels=train_y_trues, label_binarizer=model[1].label_binarizer)
+            train_metrics = get_edge_classification_metrics(predicts=train_y_predicts, labels=train_y_trues, label_binarizer=model[1].label_binarizer, fp=f'{save_result_folder}/train.json')
 
             val_total_loss, val_metrics = evaluate_model_edge_classification(model_name=args.model_name,
                                                                              model=model,
@@ -237,7 +241,8 @@ if __name__ == "__main__":
                                                                              evaluate_data=val_data,
                                                                              loss_func=loss_func,
                                                                              num_neighbors=args.num_neighbors,
-                                                                             time_gap=args.time_gap)
+                                                                             time_gap=args.time_gap,
+                                                                             fp=f'{save_result_folder}/val.json')
 
             logger.info(f'Epoch: {epoch + 1}, learning rate: {optimizer.param_groups[0]["lr"]}, train loss: {train_total_loss:.4f}')
             for metric_name in train_metrics.keys():
@@ -259,7 +264,8 @@ if __name__ == "__main__":
                                                                                    evaluate_data=test_data,
                                                                                    loss_func=loss_func,
                                                                                    num_neighbors=args.num_neighbors,
-                                                                                   time_gap=args.time_gap)
+                                                                                   time_gap=args.time_gap,
+                                                                                   fp=f'{save_result_folder}/test.json')
 
                 if args.model_name in ['JODIE', 'DyRep', 'TGN']:
                     # reload validation memory bank for saving models
@@ -294,7 +300,8 @@ if __name__ == "__main__":
                                                                              evaluate_data=val_data,
                                                                              loss_func=loss_func,
                                                                              num_neighbors=args.num_neighbors,
-                                                                             time_gap=args.time_gap)
+                                                                             time_gap=args.time_gap,
+                                                                             fp=f'{save_result_folder}/val_best.json')
 
         test_total_loss, test_metrics = evaluate_model_edge_classification(model_name=args.model_name,
                                                                            model=model,
@@ -303,7 +310,8 @@ if __name__ == "__main__":
                                                                            evaluate_data=test_data,
                                                                            loss_func=loss_func,
                                                                            num_neighbors=args.num_neighbors,
-                                                                           time_gap=args.time_gap)
+                                                                           time_gap=args.time_gap,
+                                                                           fp=f'{save_result_folder}/test_best.json')
 
         # store the evaluation metrics at the current run
         val_metric_dict, test_metric_dict = {}, {}
@@ -345,11 +353,7 @@ if __name__ == "__main__":
             }
         result_json = json.dumps(result_json, indent=4)
 
-        save_result_folder = f"./saved_results/{args.model_name}/{args.dataset_name}"
-        os.makedirs(save_result_folder, exist_ok=True)
-        save_result_path = os.path.join(save_result_folder, f"{args.save_model_name}.json")
-
-        with open(save_result_path, 'w') as file:
+        with open(f'{save_result_folder}/main.json', 'w') as file:
             file.write(result_json)
 
     # store the average metrics at the log of the last run

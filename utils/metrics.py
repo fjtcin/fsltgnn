@@ -1,5 +1,6 @@
 import numpy as np
 import torch
+import json
 from sklearn.metrics import average_precision_score, roc_auc_score, classification_report
 
 
@@ -36,7 +37,7 @@ def get_node_classification_metrics(predicts: torch.Tensor, labels: torch.Tensor
     return {'roc_auc': roc_auc}
 
 
-def get_edge_classification_metrics(predicts: torch.Tensor, labels: torch.Tensor, label_binarizer=None):
+def get_edge_classification_metrics(predicts: torch.Tensor, labels: torch.Tensor, label_binarizer=None, fp='/dev/null'):
     """
     get metrics for the node classification task
     :param predicts: Tensor, shape (num_samples, num_classes)
@@ -57,5 +58,6 @@ def get_edge_classification_metrics(predicts: torch.Tensor, labels: torch.Tensor
         roc_auc = np.nan
         roc_auc_weighted = np.nan
 
-    print(report | {'roc_auc': roc_auc, 'roc_auc_weighted': roc_auc_weighted})
-    return {'accuracy': report['accuracy']}
+    with open(fp, 'a') as f:
+        json.dump(report | {'roc_auc': roc_auc, 'roc_auc_weighted': roc_auc_weighted}, f, indent=4)
+    return {'roc_auc_weighted': roc_auc_weighted}

@@ -243,7 +243,7 @@ def evaluate_model_node_classification(model_name: str, model: nn.Module, neighb
 
 
 def evaluate_model_edge_classification(model_name: str, model: nn.Module, neighbor_sampler: NeighborSampler, evaluate_idx_data_loader: DataLoader,
-                                       evaluate_data: Data, loss_func: nn.Module, num_neighbors: int = 20, time_gap: int = 2000):
+                                       evaluate_data: Data, loss_func: nn.Module, num_neighbors: int = 20, time_gap: int = 2000, fp='/dev/null'):
     """
     evaluate models on the node classification task
     :param model_name: str, name of the model
@@ -326,7 +326,7 @@ def evaluate_model_edge_classification(model_name: str, model: nn.Module, neighb
         evaluate_y_trues = torch.cat(evaluate_y_trues, dim=0)
         evaluate_y_predicts = torch.cat(evaluate_y_predicts, dim=0)
 
-        evaluate_metrics = get_edge_classification_metrics(predicts=evaluate_y_predicts, labels=evaluate_y_trues, label_binarizer=model[1].label_binarizer)
+        evaluate_metrics = get_edge_classification_metrics(predicts=evaluate_y_predicts, labels=evaluate_y_trues, label_binarizer=model[1].label_binarizer, fp=fp)
 
     return evaluate_total_loss, evaluate_metrics
 

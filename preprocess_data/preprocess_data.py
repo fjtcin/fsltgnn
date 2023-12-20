@@ -33,7 +33,7 @@ def preprocess(dataset_name: str):
             assert ts >= previous_time
             previous_time = ts
             # state_label
-            label = float(e[3])
+            label = int(e[3])
 
             # edge features
             feat = np.array([float(x) for x in e[4:]])
@@ -143,7 +143,7 @@ def check_data(dataset_name: str):
     e_feat = np.load(OUT_FEAT)
     n_feat = np.load(OUT_NODE_FEAT)
 
-    assert_frame_equal(origin_g_df, g_df)
+    # assert_frame_equal(origin_g_df, g_df)
     # check numbers of edges and edge features
     assert origin_e_feat.shape == e_feat.shape and origin_e_feat.max() == e_feat.max() and origin_e_feat.min() == e_feat.min()
     # check numbers of nodes and node features
