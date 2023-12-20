@@ -37,7 +37,7 @@ def get_node_classification_metrics(predicts: torch.Tensor, labels: torch.Tensor
     return {'roc_auc': roc_auc}
 
 
-def get_edge_classification_metrics(predicts: torch.Tensor, labels: torch.Tensor, label_binarizer=None, fp='/dev/null'):
+def get_edge_classification_metrics(predicts: torch.Tensor, labels: torch.Tensor, binary=True, fp='/dev/null'):
     """
     get metrics for the node classification task
     :param predicts: Tensor, shape (num_samples, num_classes)
@@ -48,13 +48,16 @@ def get_edge_classification_metrics(predicts: torch.Tensor, labels: torch.Tensor
     probs = predicts.softmax(dim=-1).numpy(force=True)
     predicts = predicts.argmax(dim=-1).numpy(force=True)
     labels = labels.numpy(force=True)
-    label_bin = label_binarizer.transform(labels) if label_binarizer else None
 
     report = classification_report(y_true=labels, y_pred=predicts, output_dict=True)
     try:
-        roc_auc = roc_auc_score(y_true=label_bin, y_score=probs, average='macro', multi_class='ovo')
-        roc_auc_weighted = roc_auc_score(y_true=label_bin, y_score=probs, average='weighted', multi_class='ovo')
-    except Exception:
+        if binary:
+            roc_auc = roc_auc_score(y_true=labels, y_score=probs[:, 1])
+            roc_auc_weighted = roc_auc_score(y_true=labels, y_score=probs[:, 1], average='weighted')
+        else:
+            roc_auc = roc_auc_score(y_true=labels, y_score=probs, average='macro', multi_class='ovo')
+            roc_auc_weighted = roc_auc_score(y_true=labels, y_score=probs, average='weighted', multi_class='ovo')
+    except ValueError:
         roc_auc = np.nan
         roc_auc_weighted = np.nan
 

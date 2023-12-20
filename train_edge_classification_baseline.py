@@ -208,7 +208,7 @@ if __name__ == "__main__":
             train_y_trues = torch.cat(train_y_trues, dim=0)
             train_y_predicts = torch.cat(train_y_predicts, dim=0)
 
-            train_metrics = get_edge_classification_metrics(predicts=train_y_predicts, labels=train_y_trues, label_binarizer=model[1].label_binarizer, fp=f'{save_result_folder}/train.json')
+            train_metrics = get_edge_classification_metrics(predicts=train_y_predicts, labels=train_y_trues, binary=model[1].binary, fp=f'{save_result_folder}/train.json')
 
             val_total_loss, val_metrics = evaluate_model_edge_classification(model_name=args.model_name,
                                                                              model=model,

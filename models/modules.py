@@ -4,15 +4,6 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 
-class MyLabelBinarizer:
-    def __init__(self, num_classes):
-        self.num_classes = num_classes
-        self.lookup = np.eye(num_classes, dtype=bool)
-
-    def transform(self, y):
-        return self.lookup[y]
-
-
 class TimeEncoder(nn.Module):
 
     def __init__(self, time_dim: int, parameter_requires_grad: bool = True):
@@ -115,8 +106,7 @@ class EdgeClassifierBaseline(nn.Module):
         :param output_dim: int, dimension of the output
         """
         super().__init__()
-        self.label_binarizer = MyLabelBinarizer(output_dim)
-
+        self.binary = output_dim == 2
         self.fc1 = nn.Linear(input_dim1 + input_dim2, hidden_dim)
         self.fc2 = nn.Linear(hidden_dim, output_dim)
         self.act = nn.ReLU()
@@ -147,7 +137,7 @@ class EdgeClassifier(nn.Module):
         self.train_data = train_data
         self.train_idx_data_loader = train_idx_data_loader
         self.num_labels = train_data.labels.max().item() + 1
-        self.label_binarizer = MyLabelBinarizer(self.num_labels)
+        self.binary = self.num_labels == 2
         self.prompts = nn.Parameter(torch.ones(1, prompt_dim).to(args.device))
 
     def out(self, input):
