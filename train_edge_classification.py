@@ -49,9 +49,8 @@ if __name__ == "__main__":
 
     for run in range(args.num_runs):
 
-        set_random_seed(seed=run)
-
         if args.num_runs > 1: args.seed = run
+        set_random_seed(args.seed)
         args.load_model_name = f'{args.model_name}_seed{args.seed}'
         args.save_model_name = f'edge_classification_seed{args.seed}'
 
