@@ -141,7 +141,7 @@ class EdgeClassifier(nn.Module):
         self.prompts = nn.Parameter(torch.ones(1, prompt_dim).to(args.device))
 
     def out(self, input):
-        return input.std()
+        return F.normalize(input)
 
     def forward(self, input_1: torch.Tensor, input_2: torch.Tensor, times: np.ndarray):
         """

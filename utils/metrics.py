@@ -50,17 +50,16 @@ def get_edge_classification_metrics(predicts: torch.Tensor, labels: torch.Tensor
     labels = labels.numpy(force=True)
 
     report = classification_report(y_true=labels, y_pred=predicts, output_dict=True)
-    try:
-        if binary:
-            roc_auc = roc_auc_score(y_true=labels, y_score=probs[:, 1])
-            roc_auc_weighted = roc_auc_score(y_true=labels, y_score=probs[:, 1], average='weighted')
-        else:
+    if binary:
+        roc_auc = roc_auc_score(y_true=labels, y_score=probs[:, 1])
+        average_precision = average_precision_score(y_true=labels, y_score=probs[:, 1])
+    else:
+        average_precision = np.nan
+        try:
             roc_auc = roc_auc_score(y_true=labels, y_score=probs, average='macro', multi_class='ovo')
-            roc_auc_weighted = roc_auc_score(y_true=labels, y_score=probs, average='weighted', multi_class='ovo')
-    except ValueError:
-        roc_auc = np.nan
-        roc_auc_weighted = np.nan
+        except ValueError:
+            roc_auc = np.nan
 
     with open(fp, 'a') as f:
-        json.dump(report | {'roc_auc': roc_auc, 'roc_auc_weighted': roc_auc_weighted}, f, indent=4)
-    return {'roc_auc_weighted': roc_auc_weighted}
+        json.dump(report | {'roc_auc': roc_auc, 'average_precision': average_precision}, f, indent=4)
+    return {'roc_auc': roc_auc}
