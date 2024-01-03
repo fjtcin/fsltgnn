@@ -97,7 +97,7 @@ class MLPClassifier(nn.Module):
 
 
 class EdgeClassifierBaseline(nn.Module):
-    def __init__(self, input_dim1: int, input_dim2: int, hidden_dim: int, output_dim: int, dropout: float = 0.1):
+    def __init__(self, input_dim1: int, input_dim2: int, hidden_dim: int, output_dim: int, labels: np.ndarray, dropout: float = 0.1):
         """
         Merge Layer to merge two inputs via: input_dim1 + input_dim2 -> hidden_dim -> output_dim.
         :param input_dim1: int, dimension of first input
@@ -111,6 +111,13 @@ class EdgeClassifierBaseline(nn.Module):
         self.fc2 = nn.Linear(hidden_dim, output_dim)
         self.act = nn.ReLU()
         self.dropout = nn.Dropout(dropout)
+
+        unique, counts = np.unique(labels, return_counts=True)
+        assert len(unique) == output_dim, "The number of labels should be equal to output_dim."
+        ratios = counts / counts.sum()
+        probabilities = ratios / sum(ratios)
+        logits = np.log(probabilities)
+        self.fc2.bias.data = torch.from_numpy(logits).float()
 
     def forward(self, input_1: torch.Tensor, input_2: torch.Tensor, times: np.ndarray):
         """

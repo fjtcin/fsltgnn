@@ -108,7 +108,7 @@ if __name__ == "__main__":
         else:
             raise ValueError(f"Wrong value for model_name {args.model_name}!")
         edge_classifier = EdgeClassifierBaseline(input_dim1=node_raw_features.shape[1], input_dim2=node_raw_features.shape[1],
-                                    hidden_dim=node_raw_features.shape[1], output_dim=train_data.labels.max().item() + 1)
+                                    hidden_dim=node_raw_features.shape[1], output_dim=train_data.labels.max().item() + 1, labels = train_data.labels)
         model = nn.Sequential(dynamic_backbone, edge_classifier)
         logger.info(f'model -> {model}')
         logger.info(f'model name: {args.model_name}, #parameters: {get_parameter_sizes(model) * 4} B, '
@@ -129,7 +129,10 @@ if __name__ == "__main__":
         early_stopping = EarlyStopping(patience=args.patience, save_model_folder=save_model_folder,
                                        save_model_name=args.save_model_name, logger=logger, model_name=args.model_name)
 
-        loss_func = nn.CrossEntropyLoss()
+        unique, counts = np.unique(train_data.labels, return_counts=True)
+        weights = 1.0 / torch.from_numpy(counts).float().to(args.device)
+        weights = weights / weights.sum()
+        loss_func = nn.CrossEntropyLoss(weight=weights)
 
         for epoch in range(args.num_epochs):
 
