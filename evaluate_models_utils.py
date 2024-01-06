@@ -310,8 +310,8 @@ def evaluate_model_edge_classification(model_name: str, model: nn.Module, neighb
             else:
                 raise ValueError(f"Wrong value for model_name {model_name}!")
             # get predicted probabilities, shape (batch_size, )
-            predicts = model[1](input_1=batch_src_node_embeddings, input_2=batch_dst_node_embeddings, times=batch_node_interact_times)
-            labels = torch.from_numpy(batch_labels).to(predicts.device)
+            predicts = model[1](input_1=batch_src_node_embeddings, input_2=batch_dst_node_embeddings, times=batch_node_interact_times).squeeze(dim=-1).sigmoid()
+            labels = torch.from_numpy(batch_labels).float().to(predicts.device)
 
             loss = loss_func(input=predicts, target=labels)
 
@@ -326,7 +326,7 @@ def evaluate_model_edge_classification(model_name: str, model: nn.Module, neighb
         evaluate_y_trues = torch.cat(evaluate_y_trues, dim=0)
         evaluate_y_predicts = torch.cat(evaluate_y_predicts, dim=0)
 
-        evaluate_metrics = get_edge_classification_metrics(predicts=evaluate_y_predicts, labels=evaluate_y_trues, binary=model[1].binary, fp=fp)
+        evaluate_metrics = get_edge_classification_metrics(predicts=evaluate_y_predicts, labels=evaluate_y_trues, fp=fp)
 
     return evaluate_total_loss, evaluate_metrics
 

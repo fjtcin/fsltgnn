@@ -148,7 +148,7 @@ if __name__ == "__main__":
         early_stopping = EarlyStopping(patience=args.patience, save_model_folder=save_model_folder,
                                        save_model_name=args.save_model_name, logger=logger, model_name=args.model_name)
 
-        loss_func = nn.CrossEntropyLoss()
+        loss_func = nn.BCELoss()
 
         # set the dynamic_backbone in evaluation mode
         model[0].eval()
@@ -211,8 +211,8 @@ if __name__ == "__main__":
                     else:
                         raise ValueError(f"Wrong value for model_name {args.model_name}!")
                 # get predicted probabilities, shape (batch_size, )
-                predicts = model[1](input_1=batch_src_node_embeddings, input_2=batch_dst_node_embeddings, times=batch_node_interact_times)
-                labels = torch.from_numpy(batch_labels).to(predicts.device)
+                predicts = model[1](input_1=batch_src_node_embeddings, input_2=batch_dst_node_embeddings, times=batch_node_interact_times).squeeze(dim=-1).sigmoid()
+                labels = torch.from_numpy(batch_labels).float().to(predicts.device)
 
                 loss = loss_func(input=predicts, target=labels)
 
@@ -231,7 +231,7 @@ if __name__ == "__main__":
             train_y_trues = torch.cat(train_y_trues, dim=0)
             train_y_predicts = torch.cat(train_y_predicts, dim=0)
 
-            train_metrics = get_edge_classification_metrics(predicts=train_y_predicts, labels=train_y_trues, binary=model[1].binary, fp=f'{save_result_folder}/train.json')
+            train_metrics = get_edge_classification_metrics(predicts=train_y_predicts, labels=train_y_trues, fp=f'{save_result_folder}/train.json')
 
             val_total_loss, val_metrics = evaluate_model_edge_classification(model_name=args.model_name,
                                                                              model=model,

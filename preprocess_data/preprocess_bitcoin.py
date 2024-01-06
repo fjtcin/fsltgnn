@@ -5,6 +5,18 @@ import argparse
 from sklearn.preprocessing import LabelEncoder
 
 
+class BinaryLabelEncoder:
+    def __init__(self):
+        pass
+
+    def fit(self, x):
+        pass
+
+    def transform(self, x):
+        # return 1 if x is negative, 0 otherwise
+        return (x < 0).astype(int)
+
+
 def preprocess_data(dataset_name, node_feat_dim, edge_feat_dim):
     Path("processed_data/{}/".format(dataset_name)).mkdir(parents=True, exist_ok=True)
     PATH = 'DG_data/{}/soc-sign-{}.csv'.format(dataset_name, dataset_name)
@@ -24,7 +36,7 @@ def preprocess_data(dataset_name, node_feat_dim, edge_feat_dim):
     df[0] = le.transform(df[0]) + 1
     df[1] = le.transform(df[1]) + 1
 
-    le_label = LabelEncoder()
+    le_label = BinaryLabelEncoder()
     le_label.fit(df[2])
     df[2] = le_label.transform(df[2])
 
@@ -56,7 +68,7 @@ parser = argparse.ArgumentParser('Interface for preprocessing datasets')
 parser.add_argument('--dataset_name', type=str,
                     help='Dataset name', default='bitcoinotc', choices=['bitcoinotc', 'bitcoinalpha'])
 parser.add_argument('--node_feat_dim', type=int, default=172)
-parser.add_argument('--edge_feat_dim', type=int, default=0)
+parser.add_argument('--edge_feat_dim', type=int, default=172)
 
 args = parser.parse_args()
 
