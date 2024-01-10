@@ -39,6 +39,20 @@ class TimeEncoder(nn.Module):
         return output
 
 
+class TransformerTimeEncoder(nn.Module):
+
+    def __init__(self, time_dim):
+        self.time_dim = time_dim
+
+    def positional_encoding(self, times: torch.Tensor):
+        positions = torch.arange(self.time_dim, device=times.device)
+        div_term = torch.pow(10000.0, -2 * positions / self.time_dim)
+        encoded = times * div_term
+        encoded[:, 0::2] = torch.sin(encoded[:, 0::2])  # apply sin to even indices in the tensor; 2i
+        encoded[:, 1::2] = torch.cos(encoded[:, 1::2])  # apply cos to odd indices in the tensor; 2i+1
+        return encoded
+
+
 class MergeLayer(nn.Module):
 
     def __init__(self, input_dim1: int, input_dim2: int, hidden_dim: int, output_dim: int):
@@ -66,6 +80,31 @@ class MergeLayer(nn.Module):
         # Tensor, shape (*, output_dim)
         h = self.fc2(self.act(self.fc1(x)))
         return h
+
+
+class LinkPredictor(nn.Module):
+    def __init__(self, num_classes, prompt_dim, device, lamb=0):
+        super().__init__()
+        self.num_classes = num_classes
+        self.lamb = lamb
+        self.prompts = nn.Parameter(torch.ones(1, prompt_dim, device=device))
+        self.time_encoder = TimeEncoder(time_dim=prompt_dim)
+
+    def out(self, input):
+        return F.normalize(input)
+
+    def forward(self, input_1, input_2, labels, times):
+        features = torch.cat([input_1, input_2], dim=1)
+        labels = labels.long()
+        #TODO: make the times on GPU at first
+        p = self.prompts + self.time_encoder(torch.from_numpy(times).unsqueeze(1).float().to(features.device)).squeeze(1) * self.lamb
+        features = self.out(features) * p
+        mask = torch.zeros(self.num_classes, labels.size(0), device=features.device)
+        mask.scatter_(0, labels.unsqueeze(0), 1)
+        features_sum = mask @ features
+        normalized_centers_batch = F.normalize(features_sum)
+        logits = F.normalize(features) @ normalized_centers_batch.T
+        return logits[:, 1].squeeze()
 
 
 class MLPClassifier(nn.Module):
@@ -104,7 +143,7 @@ class EdgeClassifierBaseline(nn.Module):
         :param dropout: float, dropout rate
         """
         super().__init__()
-        self.fc1 = nn.Linear(2*input_dim, 80)
+        self.fc1 = nn.Linear(input_dim, 80)
         self.fc2 = nn.Linear(80, 10)
         self.fc3 = nn.Linear(10, 1)
         self.act = nn.ReLU()
@@ -135,46 +174,22 @@ class EdgeClassifier(nn.Module):
         self.args = args
         self.train_data = train_data
         self.train_idx_data_loader = train_idx_data_loader
-        self.num_labels = train_data.labels.max().item() + 1
-        self.prompts = nn.Parameter(torch.ones(1, prompt_dim).to(args.device))
+        self.num_classes = train_data.labels.max().item() + 1
+        self.prompts = nn.Parameter(torch.ones(1, prompt_dim, device=args.device))
+        self.time_encoder = TimeEncoder(time_dim=prompt_dim)
 
     def out(self, input):
         return F.normalize(input)
 
     def forward(self, input_1: torch.Tensor, input_2: torch.Tensor, times: np.ndarray):
-        """
-        merge and project the inputs
-        :param input_1: Tensor, shape (*, input_dim1)
-        :param input_2: Tensor, shape (*, input_dim2)
-        :return:
-        """
-        # Tensor, shape (*, input_dim1 + input_dim2)
-        x = torch.cat([input_1, input_2], dim=1)
-        p = self.prompts + self.positional_encoding(times, self.prompts.shape[1]) * self.lamb
-        return F.normalize((self.out(x) * p), dim=1) @ self.prototypical_edges.T
-
-    # def positional_encoding(self, times, d_model):
-    #     batch_size = times.shape[0]
-    #     PE = torch.zeros(batch_size, d_model)
-    #     for b in range(batch_size):
-    #         for i in range(0, d_model, 2):
-    #             PE[b, i] = math.sin(times[b] / (10000 ** ((2 * i) / d_model)))
-    #             if i + 1 < d_model:
-    #                 PE[b, i + 1] = math.cos(times[b] / (10000 ** ((2 * i) / d_model)))
-    #     return PE
-
-    def positional_encoding(self, times: torch.Tensor, d_model: int):
-        times = torch.from_numpy(times).float().unsqueeze(1).to(self.args.device)
-        positions = torch.arange(d_model).unsqueeze(0).to(self.args.device)
-        div_term = torch.pow(10000.0, -2 * positions / d_model)
-        encoded = times * div_term
-        encoded[:, 0::2] = torch.sin(encoded[:, 0::2])  # apply sin to even indices in the tensor; 2i
-        encoded[:, 1::2] = torch.cos(encoded[:, 1::2])  # apply cos to odd indices in the tensor; 2i+1
-        return encoded
+        features = torch.cat([input_1, input_2], dim=1)
+        p = self.prompts + self.time_encoder(torch.from_numpy(times).unsqueeze(1).float().to(self.args.device)).squeeze(1) * self.lamb
+        logits = F.normalize((self.out(features) * p)) @ self.prototypical_edges.T
+        return logits[:, 1].squeeze()
 
     def prototypical_encoding(self, model):
-        self.prototypical_edges = torch.zeros(self.num_labels, self.prompts.shape[1]).to(self.args.device)
-        # count_nodes_for_each_label = torch.zeros(self.num_labels, 1).to(self.args.device)
+        self.prototypical_edges = torch.zeros(self.num_classes, self.prompts.shape[1], device=self.args.device)
+        # count_nodes_for_each_label = torch.zeros(self.num_classes, 1).to(self.args.device)
 
         for batch_idx, train_data_indices in enumerate(self.train_idx_data_loader):
             batch_src_node_ids, batch_dst_node_ids, batch_node_interact_times, batch_edge_ids, batch_labels = \
@@ -220,18 +235,18 @@ class EdgeClassifier(nn.Module):
                     raise ValueError(f"Wrong value for model_name {self.args.model_name}!")
 
             batch_edge_embeddings = torch.hstack((batch_src_node_embeddings, batch_dst_node_embeddings))
-            p = self.prompts + self.positional_encoding(batch_node_interact_times, self.prompts.shape[1]) * self.lamb
+            p = self.prompts + self.time_encoder(torch.from_numpy(batch_node_interact_times).unsqueeze(1).float().to(self.args.device)).squeeze(1) * self.lamb
             batch_edge_embeddings = self.out(batch_edge_embeddings) * p
 
-            num_batch_nodes = len(train_data_indices)
-            mask = torch.zeros(self.num_labels, num_batch_nodes).to(self.args.device)
-            mask[batch_labels, torch.arange(num_batch_nodes)] = 1
+            batch_labels = torch.from_numpy(batch_labels).to(self.args.device)
+            mask = torch.zeros(self.num_classes, batch_labels.size(0), device=self.args.device)
+            mask.scatter_(0, batch_labels.unsqueeze(0), 1)
             sum_features_for_each_label = mask @ batch_edge_embeddings
 
             # count_nodes_for_each_label += torch.sum(mask, dim=1, keepdim=True)
             self.prototypical_edges += sum_features_for_each_label
 
-        self.prototypical_edges = F.normalize(self.prototypical_edges, dim=1)
+        self.prototypical_edges = F.normalize(self.prototypical_edges)
 
 
 class MultiHeadAttention(nn.Module):

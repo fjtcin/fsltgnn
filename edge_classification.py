@@ -16,7 +16,7 @@ from models.CAWN import CAWN
 from models.TCL import TCL
 from models.GraphMixer import GraphMixer
 from models.DyGFormer import DyGFormer
-from models.modules import MergeLayer, EdgeClassifier
+from models.modules import LinkPredictor, EdgeClassifier, EdgeClassifierBaseline
 from utils.utils import set_random_seed, convert_to_gpu, get_parameter_sizes, create_optimizer
 from utils.utils import get_neighbor_sampler
 from evaluate_models_utils import evaluate_model_edge_classification
@@ -108,8 +108,7 @@ if __name__ == "__main__":
                                          max_input_sequence_length=args.max_input_sequence_length, device=args.device)
         else:
             raise ValueError(f"Wrong value for model_name {args.model_name}!")
-        link_predictor = MergeLayer(input_dim1=node_raw_features.shape[1], input_dim2=node_raw_features.shape[1],
-                                    hidden_dim=node_raw_features.shape[1], output_dim=1)
+        link_predictor = LinkPredictor(num_classes=full_data.labels.max().item() + 1, prompt_dim=2*node_raw_features.shape[1], device=args.device)
         model = nn.Sequential(dynamic_backbone, link_predictor)
 
         # load the saved model in the link prediction task
@@ -119,7 +118,8 @@ if __name__ == "__main__":
         early_stopping.load_checkpoint(model, map_location='cpu')
 
         # create the model for the node classification task
-        edge_classifier = EdgeClassifier(args, train_data, train_idx_data_loader, prompt_dim=2*node_raw_features.shape[1])
+        edge_classifier = EdgeClassifierBaseline(input_dim=2*node_raw_features.shape[1], dropout=args.dropout) \
+            if args.baseline else EdgeClassifier(args, train_data, train_idx_data_loader, prompt_dim=2*node_raw_features.shape[1])
         model = nn.Sequential(model[0], edge_classifier)
         logger.info(f'model -> {model}')
         logger.info(f'model name: {args.model_name}, #parameters: {get_parameter_sizes(model) * 4} B, '

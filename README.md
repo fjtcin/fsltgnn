@@ -1,49 +1,23 @@
 # tprompt
 
-## bitcoinalpha
+## wikipedia
+
+### GraphMixer
 
 ```bash
-
-python train_link_prediction.py --dataset_name bitcoinalpha --model_name TGAT --load_best_configs --seed 0 --batch_size 1200
-python train_edge_classification.py --dataset_name bitcoinalpha --model_name TGAT --load_best_configs --seed 0 --batch_size 5300 --test_ratio 0.3
-
-python train_link_prediction.py --dataset_name bitcoinalpha --model_name CAWN --load_best_configs --seed 0 --batch_size 1200
-python train_edge_classification.py --dataset_name bitcoinalpha --model_name CAWN --load_best_configs --seed 0 --batch_size 4200 --test_ratio 0.3
-
-python train_link_prediction.py --dataset_name bitcoinalpha --model_name TCL --load_best_configs --seed 0 --batch_size 2300
-python train_edge_classification.py --dataset_name bitcoinalpha --model_name TCL --load_best_configs --seed 0 --batch_size 20000 --test_ratio 0.3
-
-python train_link_prediction.py --dataset_name bitcoinalpha --model_name GraphMixer --load_best_configs --seed 0 --batch_size 2800
-python train_edge_classification.py --dataset_name bitcoinalpha --model_name GraphMixer --load_best_configs --seed 0 --batch_size 4300 --test_ratio 0.3
-
-python train_link_prediction.py --dataset_name bitcoinalpha --model_name DyGFormer --load_best_configs --seed 0 --batch_size 2300
-python train_edge_classification.py --dataset_name bitcoinalpha --model_name DyGFormer --load_best_configs --seed 0 --batch_size 10000 --test_ratio 0.3
+python pre_training.py --dataset_name wikipedia --model_name GraphMixer --load_best_configs --seed 0 --batch_size 1000
+python edge_classification.py --dataset_name wikipedia --model_name GraphMixer --load_best_configs --seed 0 --batch_size 1000
 ```
 
 baseline
 
 ```bash
-python train_edge_classification_baseline.py --dataset_name bitcoinalpha --model_name TGAT --load_best_configs --seed 0 --batch_size 1300 --test_ratio 0.15
-
-python train_edge_classification_baseline.py --dataset_name bitcoinalpha --model_name GraphMixer --load_best_configs --seed 0 --batch_size 2500 --test_ratio 0.15
+python link_prediction_baseline.py --dataset_name wikipedia --model_name GraphMixer --load_best_configs --seed 0 --batch_size 1000
+python edge_classification_baseline.py --dataset_name wikipedia --model_name GraphMixer --load_best_configs --seed 0 --batch_size 1000 --test_ratio 0.15
+python edge_classification.py --dataset_name wikipedia --model_name GraphMixer --load_best_configs --seed 0 --batch_size 1000 --test_ratio 0.15 --baseline
 ```
 
-## hyperlink
-
-```bash
-python train_link_prediction.py --dataset_name hyperlink --model_name TGAT --load_best_configs --seed 0
-python train_edge_classification.py --dataset_name hyperlink --model_name TGAT --load_best_configs --seed 0
-```
-
-baseline
-
-```bash
-python train_edge_classification_baseline.py --dataset_name hyperlink --model_name TGAT --load_best_configs --seed 0 --batch_size 1300 --test_ratio 0.15
-
-python train_edge_classification_baseline.py --dataset_name hyperlink --model_name GraphMixer --load_best_configs --seed 0 --batch_size 1500 --test_ratio 0.15
-```
-
-## original
+### original (legacy)
 
 ```bash
 python train_link_prediction.py --dataset_name wikipedia --model_name TGAT --load_best_configs --num_runs 3
