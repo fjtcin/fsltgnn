@@ -16,7 +16,7 @@ from models.CAWN import CAWN
 from models.TCL import TCL
 from models.GraphMixer import GraphMixer
 from models.DyGFormer import DyGFormer
-from models.modules import LinkPredictorBaseline, LinkPredictor, EdgeClassifier
+from models.modules import LinkPredictorBaseline, LinkPredictor, EdgeClassifier, EdgeClassifierBaseline
 from utils.utils import set_random_seed, convert_to_gpu, get_parameter_sizes, create_optimizer
 from utils.utils import get_neighbor_sampler
 from evaluate_models_utils import evaluate_model_edge_classification
@@ -52,7 +52,7 @@ if __name__ == "__main__":
         if args.num_runs > 1: args.seed = run
         set_random_seed(args.seed)
         args.load_model_name = f'link_prediction_baseline_seed{args.seed}' if args.no_pre else f'pre_training_seed{args.seed}'
-        args.save_model_name = f'edge_classification_seed{args.seed}' + (f'--no_pre' if args.no_pre else '')
+        args.save_model_name = f'edge_classification_{args.classifier}_seed{args.seed}' + (f'--no_pre' if args.no_pre else '')
 
         # set up logger
         logging.basicConfig(level=logging.INFO)
@@ -126,7 +126,13 @@ if __name__ == "__main__":
         early_stopping.load_checkpoint(model, map_location='cpu')
 
         # create the model for the node classification task
-        edge_classifier = EdgeClassifier(args, train_data, train_idx_data_loader, prompt_dim=2*node_raw_features.shape[1])
+        match args.classifier:
+            case 'mean':
+                edge_classifier = EdgeClassifier(args, train_data, train_idx_data_loader, prompt_dim=2*node_raw_features.shape[1])
+            case 'learnable':
+                raise NotImplementedError
+            case 'baseline':
+                edge_classifier = EdgeClassifierBaseline(input_dim=2*node_raw_features.shape[1], dropout=args.dropout)
         model = nn.Sequential(model[0], edge_classifier)
         logger.info(f'model -> {model}')
         logger.info(f'model name: {args.model_name}, #parameters: {get_parameter_sizes(model) * 4} B, '
@@ -209,9 +215,13 @@ if __name__ == "__main__":
                     else:
                         raise ValueError(f"Wrong value for model_name {args.model_name}!")
                 # get predicted probabilities, shape (batch_size, )
-                predicts, labels, cnt_mean = model[1](input_1=batch_src_node_embeddings, input_2=batch_dst_node_embeddings, times=batch_node_interact_times, labels=batch_labels)
+                if args.classifier == 'mean':
+                    predicts, labels, cnt_mean = model[1](input_1=batch_src_node_embeddings, input_2=batch_dst_node_embeddings, times=batch_node_interact_times, labels=batch_labels)
+                    labels = labels.float()
+                else:
+                    predicts = model[1](input_1=batch_src_node_embeddings, input_2=batch_dst_node_embeddings, times=batch_node_interact_times)
+                    labels = torch.from_numpy(batch_labels).float().to(predicts.device)
                 predicts = predicts.sigmoid()
-                labels = labels.float()
 
                 loss = loss_func(input=predicts, target=labels)
 
@@ -224,7 +234,10 @@ if __name__ == "__main__":
                 loss.backward()
                 optimizer.step()
 
-                train_idx_data_loader_tqdm.set_description(f'Epoch: {epoch + 1}, train for the {batch_idx + 1}-th batch, train loss: {loss.item():.4f}, cnt_min: {cnt_mean}')
+                if args.classifier == 'mean':
+                    train_idx_data_loader_tqdm.set_description(f'Epoch: {epoch + 1}, train for the {batch_idx + 1}-th batch, train loss: {loss.item():.4f}, cnt_min: {cnt_mean}')
+                else:
+                    train_idx_data_loader_tqdm.set_description(f'Epoch: {epoch + 1}, train for the {batch_idx + 1}-th batch, train loss: {loss.item()}')
 
             train_total_loss /= (batch_idx + 1)
             train_y_trues = torch.cat(train_y_trues, dim=0)

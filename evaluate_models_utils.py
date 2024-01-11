@@ -266,9 +266,9 @@ def evaluate_model_edge_classification(model_name: str, model: nn.Module, neighb
 
     with torch.no_grad():
         # store evaluate losses, trues and predicts
+        model[1].prototypical_encoding(model[0])
         evaluate_total_loss, evaluate_y_trues, evaluate_y_predicts = 0.0, [], []
         evaluate_idx_data_loader_tqdm = tqdm(evaluate_idx_data_loader, ncols=120)
-        model[1].prototypical_encoding(model[0])
         for batch_idx, evaluate_data_indices in enumerate(evaluate_idx_data_loader_tqdm):
             evaluate_data_indices = evaluate_data_indices.numpy()
             batch_src_node_ids, batch_dst_node_ids, batch_node_interact_times, batch_edge_ids, batch_labels = \
