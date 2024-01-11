@@ -35,8 +35,8 @@ def evaluate_model_link_prediction(model_name: str, model: nn.Module, neighbor_s
     model.eval()
 
     with torch.no_grad():
-        # store evaluate losses and metrics
-        evaluate_losses, evaluate_metrics = [], []
+        # store train losses, trues and predicts
+        evaluate_total_loss, evaluate_y_trues, evaluate_y_predicts = 0.0, [], []
         evaluate_idx_data_loader_tqdm = tqdm(evaluate_idx_data_loader, ncols=120)
         for batch_idx, evaluate_data_indices in enumerate(evaluate_idx_data_loader_tqdm):
             evaluate_data_indices = evaluate_data_indices.numpy()
@@ -137,13 +137,20 @@ def evaluate_model_link_prediction(model_name: str, model: nn.Module, neighbor_s
 
             loss = loss_func(input=predicts, target=labels)
 
-            evaluate_losses.append(loss.item())
+            evaluate_total_loss += loss.item()
 
-            evaluate_metrics.append(get_link_prediction_metrics(predicts=predicts, labels=labels))
+            evaluate_y_trues.append(labels)
+            evaluate_y_predicts.append(predicts)
 
             evaluate_idx_data_loader_tqdm.set_description(f'evaluate for the {batch_idx + 1}-th batch, evaluate loss: {loss.item()}')
 
-    return evaluate_losses, evaluate_metrics
+        evaluate_total_loss /= (batch_idx + 1)
+        evaluate_y_trues = torch.cat(evaluate_y_trues, dim=0)
+        evaluate_y_predicts = torch.cat(evaluate_y_predicts, dim=0)
+
+        evaluate_metrics = get_link_prediction_metrics(predicts=evaluate_y_predicts, labels=evaluate_y_trues)
+
+    return evaluate_total_loss, evaluate_metrics
 
 
 def evaluate_model_node_classification(model_name: str, model: nn.Module, neighbor_sampler: NeighborSampler, evaluate_idx_data_loader: DataLoader,

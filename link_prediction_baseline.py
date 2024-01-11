@@ -155,8 +155,8 @@ if __name__ == "__main__":
                 # reinitialize memory of memory-based models at the start of each epoch
                 model[0].memory_bank.__init_memory_bank__()
 
-            # store train losses and metrics
-            train_losses, train_metrics = [], []
+            # store train losses, trues and predicts
+            train_total_loss, train_y_trues, train_y_predicts = 0.0, [], []
             train_idx_data_loader_tqdm = tqdm(train_idx_data_loader, ncols=120)
             for batch_idx, train_data_indices in enumerate(train_idx_data_loader_tqdm):
                 train_data_indices = train_data_indices.numpy()
@@ -250,9 +250,10 @@ if __name__ == "__main__":
 
                 loss = loss_func(input=predicts, target=labels)
 
-                train_losses.append(loss.item())
+                train_total_loss += loss.item()
 
-                train_metrics.append(get_link_prediction_metrics(predicts=predicts, labels=labels))
+                train_y_trues.append(labels)
+                train_y_predicts.append(predicts)
 
                 optimizer.zero_grad()
                 loss.backward()
@@ -264,11 +265,17 @@ if __name__ == "__main__":
                     # detach the memories and raw messages of nodes in the memory bank after each batch, so we don't back propagate to the start of time
                     model[0].memory_bank.detach_memory_bank()
 
+            train_total_loss /= (batch_idx + 1)
+            train_y_trues = torch.cat(train_y_trues, dim=0)
+            train_y_predicts = torch.cat(train_y_predicts, dim=0)
+
+            train_metrics = get_link_prediction_metrics(predicts=train_y_predicts, labels=train_y_trues)
+
             if args.model_name in ['JODIE', 'DyRep', 'TGN']:
                 # backup memory bank after training so it can be used for new validation nodes
                 train_backup_memory_bank = model[0].memory_bank.backup_memory_bank()
 
-            val_losses, val_metrics = evaluate_model_link_prediction(model_name=args.model_name,
+            val_total_loss, val_metrics = evaluate_model_link_prediction(model_name=args.model_name,
                                                                      model=model,
                                                                      neighbor_sampler=full_neighbor_sampler,
                                                                      evaluate_idx_data_loader=val_idx_data_loader,
@@ -285,7 +292,7 @@ if __name__ == "__main__":
                 # reload training memory bank for new validation nodes
                 model[0].memory_bank.reload_memory_bank(train_backup_memory_bank)
 
-            new_node_val_losses, new_node_val_metrics = evaluate_model_link_prediction(model_name=args.model_name,
+            new_node_val_total_loss, new_node_val_metrics = evaluate_model_link_prediction(model_name=args.model_name,
                                                                                        model=model,
                                                                                        neighbor_sampler=full_neighbor_sampler,
                                                                                        evaluate_idx_data_loader=new_node_val_idx_data_loader,
@@ -300,19 +307,19 @@ if __name__ == "__main__":
                 # note that since model treats memory as parameters, we need to reload the memory to val_backup_memory_bank for saving models
                 model[0].memory_bank.reload_memory_bank(val_backup_memory_bank)
 
-            logger.info(f'Epoch: {epoch + 1}, learning rate: {optimizer.param_groups[0]["lr"]}, train loss: {np.mean(train_losses):.4f}')
-            for metric_name in train_metrics[0].keys():
-                logger.info(f'train {metric_name}, {np.mean([train_metric[metric_name] for train_metric in train_metrics]):.4f}')
-            logger.info(f'validate loss: {np.mean(val_losses):.4f}')
-            for metric_name in val_metrics[0].keys():
-                logger.info(f'validate {metric_name}, {np.mean([val_metric[metric_name] for val_metric in val_metrics]):.4f}')
-            logger.info(f'new node validate loss: {np.mean(new_node_val_losses):.4f}')
-            for metric_name in new_node_val_metrics[0].keys():
-                logger.info(f'new node validate {metric_name}, {np.mean([new_node_val_metric[metric_name] for new_node_val_metric in new_node_val_metrics]):.4f}')
+            logger.info(f'Epoch: {epoch + 1}, learning rate: {optimizer.param_groups[0]["lr"]}, train loss: {train_total_loss:.4f}')
+            for metric_name in train_metrics.keys():
+                logger.info(f'train {metric_name}, {train_metrics[metric_name]:.4f}')
+            logger.info(f'validate loss: {val_total_loss:.4f}')
+            for metric_name in val_metrics.keys():
+                logger.info(f'validate {metric_name}, {val_metrics[metric_name]:.4f}')
+            logger.info(f'new node validate loss: {new_node_val_total_loss:.4f}')
+            for metric_name in new_node_val_metrics.keys():
+                logger.info(f'new node validate {metric_name}, {new_node_val_metrics[metric_name]:.4f}')
 
             # perform testing once after test_interval_epochs
             if (epoch + 1) % args.test_interval_epochs == 0:
-                test_losses, test_metrics = evaluate_model_link_prediction(model_name=args.model_name,
+                test_total_loss, test_metrics = evaluate_model_link_prediction(model_name=args.model_name,
                                                                            model=model,
                                                                            neighbor_sampler=full_neighbor_sampler,
                                                                            evaluate_idx_data_loader=test_idx_data_loader,
@@ -326,7 +333,7 @@ if __name__ == "__main__":
                     # reload validation memory bank for new testing nodes
                     model[0].memory_bank.reload_memory_bank(val_backup_memory_bank)
 
-                new_node_test_losses, new_node_test_metrics = evaluate_model_link_prediction(model_name=args.model_name,
+                new_node_test_total_loss, new_node_test_metrics = evaluate_model_link_prediction(model_name=args.model_name,
                                                                                              model=model,
                                                                                              neighbor_sampler=full_neighbor_sampler,
                                                                                              evaluate_idx_data_loader=new_node_test_idx_data_loader,
@@ -341,17 +348,17 @@ if __name__ == "__main__":
                     # note that since model treats memory as parameters, we need to reload the memory to val_backup_memory_bank for saving models
                     model[0].memory_bank.reload_memory_bank(val_backup_memory_bank)
 
-                logger.info(f'test loss: {np.mean(test_losses):.4f}')
-                for metric_name in test_metrics[0].keys():
-                    logger.info(f'test {metric_name}, {np.mean([test_metric[metric_name] for test_metric in test_metrics]):.4f}')
-                logger.info(f'new node test loss: {np.mean(new_node_test_losses):.4f}')
-                for metric_name in new_node_test_metrics[0].keys():
-                    logger.info(f'new node test {metric_name}, {np.mean([new_node_test_metric[metric_name] for new_node_test_metric in new_node_test_metrics]):.4f}')
+                logger.info(f'test loss: {test_total_loss:.4f}')
+                for metric_name in test_metrics.keys():
+                    logger.info(f'test {metric_name}, {test_metrics[metric_name]:.4f}')
+                logger.info(f'new node test loss: {new_node_test_total_loss:.4f}')
+                for metric_name in new_node_test_metrics.keys():
+                    logger.info(f'new node test {metric_name}, {new_node_test_metrics[metric_name]:.4f}')
 
             # select the best model based on all the validate metrics
             val_metric_indicator = []
-            for metric_name in val_metrics[0].keys():
-                val_metric_indicator.append((metric_name, np.mean([val_metric[metric_name] for val_metric in val_metrics]), True))
+            for metric_name in val_metrics.keys():
+                val_metric_indicator.append((metric_name, val_metrics[metric_name], True))
             early_stop = early_stopping.step(val_metric_indicator, model)
 
             if early_stop:
@@ -365,7 +372,7 @@ if __name__ == "__main__":
 
         # the saved best model of memory-based models cannot perform validation since the stored memory has been updated by validation data
         if args.model_name not in ['JODIE', 'DyRep', 'TGN']:
-            val_losses, val_metrics = evaluate_model_link_prediction(model_name=args.model_name,
+            val_total_loss, val_metrics = evaluate_model_link_prediction(model_name=args.model_name,
                                                                      model=model,
                                                                      neighbor_sampler=full_neighbor_sampler,
                                                                      evaluate_idx_data_loader=val_idx_data_loader,
@@ -375,7 +382,7 @@ if __name__ == "__main__":
                                                                      num_neighbors=args.num_neighbors,
                                                                      time_gap=args.time_gap)
 
-            new_node_val_losses, new_node_val_metrics = evaluate_model_link_prediction(model_name=args.model_name,
+            new_node_val_total_loss, new_node_val_metrics = evaluate_model_link_prediction(model_name=args.model_name,
                                                                                        model=model,
                                                                                        neighbor_sampler=full_neighbor_sampler,
                                                                                        evaluate_idx_data_loader=new_node_val_idx_data_loader,
@@ -389,7 +396,7 @@ if __name__ == "__main__":
             # the memory in the best model has seen the validation edges, we need to backup the memory for new testing nodes
             val_backup_memory_bank = model[0].memory_bank.backup_memory_bank()
 
-        test_losses, test_metrics = evaluate_model_link_prediction(model_name=args.model_name,
+        test_total_loss, test_metrics = evaluate_model_link_prediction(model_name=args.model_name,
                                                                    model=model,
                                                                    neighbor_sampler=full_neighbor_sampler,
                                                                    evaluate_idx_data_loader=test_idx_data_loader,
@@ -403,7 +410,7 @@ if __name__ == "__main__":
             # reload validation memory bank for new testing nodes
             model[0].memory_bank.reload_memory_bank(val_backup_memory_bank)
 
-        new_node_test_losses, new_node_test_metrics = evaluate_model_link_prediction(model_name=args.model_name,
+        new_node_test_total_loss, new_node_test_metrics = evaluate_model_link_prediction(model_name=args.model_name,
                                                                                      model=model,
                                                                                      neighbor_sampler=full_neighbor_sampler,
                                                                                      evaluate_idx_data_loader=new_node_test_idx_data_loader,
@@ -416,29 +423,29 @@ if __name__ == "__main__":
         val_metric_dict, new_node_val_metric_dict, test_metric_dict, new_node_test_metric_dict = {}, {}, {}, {}
 
         if args.model_name not in ['JODIE', 'DyRep', 'TGN']:
-            logger.info(f'validate loss: {np.mean(val_losses):.4f}')
-            for metric_name in val_metrics[0].keys():
-                average_val_metric = np.mean([val_metric[metric_name] for val_metric in val_metrics])
-                logger.info(f'validate {metric_name}, {average_val_metric:.4f}')
-                val_metric_dict[metric_name] = average_val_metric
+            logger.info(f'validate loss: {val_total_loss:.4f}')
+            for metric_name in val_metrics.keys():
+                val_metric = val_metrics[metric_name]
+                logger.info(f'validate {metric_name}, {val_metric:.4f}')
+                val_metric_dict[metric_name] = val_metric
 
-            logger.info(f'new node validate loss: {np.mean(new_node_val_losses):.4f}')
-            for metric_name in new_node_val_metrics[0].keys():
-                average_new_node_val_metric = np.mean([new_node_val_metric[metric_name] for new_node_val_metric in new_node_val_metrics])
-                logger.info(f'new node validate {metric_name}, {average_new_node_val_metric:.4f}')
-                new_node_val_metric_dict[metric_name] = average_new_node_val_metric
+            logger.info(f'new node validate loss: {new_node_val_total_loss:.4f}')
+            for metric_name in new_node_val_metrics.keys():
+                new_node_val_metric = new_node_val_metrics[metric_name]
+                logger.info(f'new node validate {metric_name}, {new_node_val_metric:.4f}')
+                new_node_val_metric_dict[metric_name] = new_node_val_metric
 
-        logger.info(f'test loss: {np.mean(test_losses):.4f}')
-        for metric_name in test_metrics[0].keys():
-            average_test_metric = np.mean([test_metric[metric_name] for test_metric in test_metrics])
-            logger.info(f'test {metric_name}, {average_test_metric:.4f}')
-            test_metric_dict[metric_name] = average_test_metric
+        logger.info(f'test loss: {test_total_loss:.4f}')
+        for metric_name in test_metrics.keys():
+            test_metric = test_metrics[metric_name]
+            logger.info(f'test {metric_name}, {test_metric:.4f}')
+            test_metric_dict[metric_name] = test_metric
 
-        logger.info(f'new node test loss: {np.mean(new_node_test_losses):.4f}')
-        for metric_name in new_node_test_metrics[0].keys():
-            average_new_node_test_metric = np.mean([new_node_test_metric[metric_name] for new_node_test_metric in new_node_test_metrics])
-            logger.info(f'new node test {metric_name}, {average_new_node_test_metric:.4f}')
-            new_node_test_metric_dict[metric_name] = average_new_node_test_metric
+        logger.info(f'new node test loss: {new_node_test_total_loss:.4f}')
+        for metric_name in new_node_test_metrics.keys():
+            new_node_test_metric = new_node_test_metrics[metric_name]
+            logger.info(f'new node test {metric_name}, {new_node_test_metric:.4f}')
+            new_node_test_metric_dict[metric_name] = new_node_test_metric
 
         single_run_time = time.time() - run_start_time
         logger.info(f'Run {run + 1} cost {single_run_time:.2f} seconds.')

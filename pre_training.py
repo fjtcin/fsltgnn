@@ -124,8 +124,8 @@ if __name__ == "__main__":
             if args.model_name in ['JODIE', 'DyRep', 'TGN']:
                 model[0].memory_bank.__init_memory_bank__()
 
-            # store train losses and metrics
-            train_losses = []
+            # store train losses
+            train_total_loss = 0.0
             full_idx_data_loader_tqdm = tqdm(full_idx_data_loader, ncols=120)
             for batch_idx, train_data_indices in enumerate(full_idx_data_loader_tqdm):
                 train_data_indices = train_data_indices.numpy()
@@ -219,7 +219,7 @@ if __name__ == "__main__":
 
                 loss = loss_func(input=predicts, target=labels)
 
-                train_losses.append(loss.item())
+                train_total_loss += loss.item()
 
                 optimizer.zero_grad()
                 loss.backward()
@@ -230,9 +230,11 @@ if __name__ == "__main__":
                 if args.model_name in ['JODIE', 'DyRep', 'TGN']:
                     model[0].memory_bank.detach_memory_bank()
 
-            logger.info(f'Epoch: {epoch + 1}, learning rate: {optimizer.param_groups[0]["lr"]}, train loss: {np.mean(train_losses):.4f}')
+            train_total_loss /= (batch_idx + 1)
 
-            early_stop = early_stopping.step([('loss', np.mean(train_losses), False)], model)
+            logger.info(f'Epoch: {epoch + 1}, learning rate: {optimizer.param_groups[0]["lr"]}, train loss: {train_total_loss:.4f}')
+
+            early_stop = early_stopping.step([('loss', train_total_loss, False)], model)
 
             if early_stop:
                 break
