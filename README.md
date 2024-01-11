@@ -17,7 +17,7 @@ python edge_classification.py --dataset_name wikipedia --model_name GraphMixer -
 baseline
 
 ```bash
+python edge_classification_e2e.py --dataset_name wikipedia --model_name GraphMixer --load_best_configs --seed 0
+python edge_classification_baseline.py --no_pre --dataset_name wikipedia --model_name GraphMixer --load_best_configs --seed 0
 python edge_classification_baseline.py --dataset_name wikipedia --model_name GraphMixer --load_best_configs --seed 0
-python edge_classification.py --baseline --no_pre --dataset_name wikipedia --model_name GraphMixer --load_best_configs --seed 0
-python edge_classification.py --baseline --dataset_name wikipedia --model_name GraphMixer --load_best_configs --seed 0
 ```

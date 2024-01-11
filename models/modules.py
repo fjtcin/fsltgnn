@@ -68,7 +68,7 @@ class MergeLayer(nn.Module):
         self.fc2 = nn.Linear(hidden_dim, output_dim)
         self.act = nn.ReLU()
 
-    def forward(self, input_1: torch.Tensor, input_2: torch.Tensor):
+    def forward(self, input_1: torch.Tensor, input_2: torch.Tensor, times=None):
         """
         merge and project the inputs
         :param input_1: Tensor, shape (*, input_dim1)
@@ -93,18 +93,15 @@ class LinkPredictor(nn.Module):
     def out(self, input):
         return F.normalize(input)
 
-    def forward(self, input_1, input_2, labels, times):
-        features = torch.cat([input_1, input_2], dim=1)
-        labels = labels.long()
+    def forward(self, input_1, input_2, times):
+        src = torch.cat([input_1, input_1], dim=1)
+        dst = torch.cat([input_2, input_2], dim=1)
         #TODO: make the times on GPU at first
-        p = self.prompts + self.time_encoder(torch.from_numpy(times).unsqueeze(1).float().to(features.device)).squeeze(1) * self.lamb
-        features = self.out(features) * p
-        mask = torch.zeros(self.num_classes, labels.size(0), device=features.device)
-        mask.scatter_(0, labels.unsqueeze(0), 1)
-        features_sum = mask @ features
-        normalized_centers_batch = F.normalize(features_sum)
-        logits = F.normalize(features) @ normalized_centers_batch.T
-        return logits[:, 1].squeeze()
+        p = self.prompts + self.time_encoder(torch.from_numpy(times).unsqueeze(1).float().to(src.device)).squeeze(1) * self.lamb
+        src = self.out(src) * p
+        dst = self.out(dst) * p
+        logits = F.cosine_similarity(src, dst, dim=1)
+        return logits
 
 
 class MLPClassifier(nn.Module):
