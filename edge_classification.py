@@ -16,7 +16,7 @@ from models.CAWN import CAWN
 from models.TCL import TCL
 from models.GraphMixer import GraphMixer
 from models.DyGFormer import DyGFormer
-from models.modules import LinkPredictor, EdgeClassifier, EdgeClassifierBaseline
+from models.modules import MergeLayer, LinkPredictor, EdgeClassifier, EdgeClassifierBaseline
 from utils.utils import set_random_seed, convert_to_gpu, get_parameter_sizes, create_optimizer
 from utils.utils import get_neighbor_sampler
 from evaluate_models_utils import evaluate_model_edge_classification
@@ -51,8 +51,8 @@ if __name__ == "__main__":
 
         if args.num_runs > 1: args.seed = run
         set_random_seed(args.seed)
-        args.load_model_name = f'{args.model_name}_seed{args.seed}'
-        args.save_model_name = f'edge_classification_seed{args.seed}'
+        args.load_model_name = f'link_prediction_baseline_seed{args.seed}' if args.no_pre else f'pre_training_seed{args.seed}'
+        args.save_model_name = f'edge_classification_seed{args.seed}' + (f'--baseline' if args.baseline else '') + (f'--no_pre' if args.no_pre else '')
 
         # set up logger
         logging.basicConfig(level=logging.INFO)
@@ -77,6 +77,13 @@ if __name__ == "__main__":
         logger.info(f"********** Run {run + 1} starts. **********")
 
         logger.info(f'configuration is {args}')
+
+        save_model_folder = f"./saved_models/{args.model_name}/{args.dataset_name}/"
+        os.makedirs(save_model_folder, exist_ok=True)
+
+        save_result_folder = f"./saved_results/{args.model_name}/{args.dataset_name}/{args.save_model_name}/"
+        shutil.rmtree(save_result_folder, ignore_errors=True)
+        os.makedirs(save_result_folder, exist_ok=True)
 
         # create model
         if args.model_name == 'TGAT':
@@ -108,12 +115,13 @@ if __name__ == "__main__":
                                          max_input_sequence_length=args.max_input_sequence_length, device=args.device)
         else:
             raise ValueError(f"Wrong value for model_name {args.model_name}!")
-        link_predictor = LinkPredictor(num_classes=full_data.labels.max().item() + 1, prompt_dim=2*node_raw_features.shape[1], device=args.device)
+        link_predictor = MergeLayer(input_dim1=node_raw_features.shape[1], input_dim2=node_raw_features.shape[1],
+                                    hidden_dim=node_raw_features.shape[1], output_dim=1) if args.no_pre else \
+                        LinkPredictor(num_classes=full_data.labels.max().item() + 1, prompt_dim=2*node_raw_features.shape[1], device=args.device)
         model = nn.Sequential(dynamic_backbone, link_predictor)
 
         # load the saved model in the link prediction task
-        load_model_folder = f"./saved_models/{args.model_name}/{args.dataset_name}/{args.load_model_name}"
-        early_stopping = EarlyStopping(patience=0, save_model_folder=load_model_folder,
+        early_stopping = EarlyStopping(patience=0, save_model_folder=save_model_folder,
                                        save_model_name=args.load_model_name, logger=logger, model_name=args.model_name)
         early_stopping.load_checkpoint(model, map_location='cpu')
 
@@ -136,14 +144,6 @@ if __name__ == "__main__":
                 for node_raw_message in node_raw_messages:
                     new_node_raw_messages.append((node_raw_message[0].to(args.device), node_raw_message[1]))
                 model[0].memory_bank.node_raw_messages[node_id] = new_node_raw_messages
-
-        save_model_folder = f"./saved_models/{args.model_name}/{args.dataset_name}/{args.save_model_name}/"
-        shutil.rmtree(save_model_folder, ignore_errors=True)
-        os.makedirs(save_model_folder, exist_ok=True)
-
-        save_result_folder = f"./saved_results/{args.model_name}/{args.dataset_name}/{args.save_model_name}/"
-        shutil.rmtree(save_result_folder, ignore_errors=True)
-        os.makedirs(save_result_folder, exist_ok=True)
 
         early_stopping = EarlyStopping(patience=args.patience, save_model_folder=save_model_folder,
                                        save_model_name=args.save_model_name, logger=logger, model_name=args.model_name)

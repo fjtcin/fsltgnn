@@ -66,7 +66,7 @@ if __name__ == "__main__":
 
         if args.num_runs > 1: args.seed = run
         set_random_seed(args.seed)
-        args.save_model_name = f'{args.model_name}_seed{args.seed}'
+        args.save_model_name = f'link_prediction_baseline_seed{args.seed}'
 
         # set up logger
         logging.basicConfig(level=logging.INFO)
@@ -91,6 +91,13 @@ if __name__ == "__main__":
         logger.info(f"********** Run {run + 1} starts. **********")
 
         logger.info(f'configuration is {args}')
+
+        save_model_folder = f"./saved_models/{args.model_name}/{args.dataset_name}/"
+        os.makedirs(save_model_folder, exist_ok=True)
+
+        save_result_folder = f"./saved_results/{args.model_name}/{args.dataset_name}/{args.save_model_name}/"
+        shutil.rmtree(save_result_folder, ignore_errors=True)
+        os.makedirs(save_result_folder, exist_ok=True)
 
         # create model
         if args.model_name == 'TGAT':
@@ -132,10 +139,6 @@ if __name__ == "__main__":
         optimizer = create_optimizer(model=model, optimizer_name=args.optimizer, learning_rate=args.learning_rate, weight_decay=args.weight_decay)
 
         model = convert_to_gpu(model, device=args.device)
-
-        save_model_folder = f"./saved_models/{args.model_name}/{args.dataset_name}/{args.save_model_name}/"
-        shutil.rmtree(save_model_folder, ignore_errors=True)
-        os.makedirs(save_model_folder, exist_ok=True)
 
         early_stopping = EarlyStopping(patience=args.patience, save_model_folder=save_model_folder,
                                        save_model_name=args.save_model_name, logger=logger, model_name=args.model_name)
@@ -466,11 +469,7 @@ if __name__ == "__main__":
             }
         result_json = json.dumps(result_json, indent=4)
 
-        save_result_folder = f"./saved_results/{args.model_name}/{args.dataset_name}"
-        os.makedirs(save_result_folder, exist_ok=True)
-        save_result_path = os.path.join(save_result_folder, f"{args.save_model_name}.json")
-
-        with open(save_result_path, 'w') as file:
+        with open(f'{save_result_folder}/main.json', 'w') as file:
             file.write(result_json)
 
     # store the average metrics at the log of the last run

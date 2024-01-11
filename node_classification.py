@@ -78,6 +78,13 @@ if __name__ == "__main__":
 
         logger.info(f'configuration is {args}')
 
+        save_model_folder = f"./saved_models/{args.model_name}/{args.dataset_name}/"
+        os.makedirs(save_model_folder, exist_ok=True)
+
+        save_result_folder = f"./saved_results/{args.model_name}/{args.dataset_name}/{args.save_model_name}/"
+        shutil.rmtree(save_result_folder, ignore_errors=True)
+        os.makedirs(save_result_folder, exist_ok=True)
+
         # create model
         if args.model_name == 'TGAT':
             dynamic_backbone = TGAT(node_raw_features=node_raw_features, edge_raw_features=edge_raw_features, neighbor_sampler=full_neighbor_sampler,
@@ -113,8 +120,7 @@ if __name__ == "__main__":
         model = nn.Sequential(dynamic_backbone, link_predictor)
 
         # load the saved model in the link prediction task
-        load_model_folder = f"./saved_models/{args.model_name}/{args.dataset_name}/{args.load_model_name}"
-        early_stopping = EarlyStopping(patience=0, save_model_folder=load_model_folder,
+        early_stopping = EarlyStopping(patience=0, save_model_folder=save_model_folder,
                                        save_model_name=args.load_model_name, logger=logger, model_name=args.model_name)
         early_stopping.load_checkpoint(model, map_location='cpu')
 
@@ -136,10 +142,6 @@ if __name__ == "__main__":
                 for node_raw_message in node_raw_messages:
                     new_node_raw_messages.append((node_raw_message[0].to(args.device), node_raw_message[1]))
                 model[0].memory_bank.node_raw_messages[node_id] = new_node_raw_messages
-
-        save_model_folder = f"./saved_models/{args.model_name}/{args.dataset_name}/{args.save_model_name}/"
-        shutil.rmtree(save_model_folder, ignore_errors=True)
-        os.makedirs(save_model_folder, exist_ok=True)
 
         early_stopping = EarlyStopping(patience=args.patience, save_model_folder=save_model_folder,
                                        save_model_name=args.save_model_name, logger=logger, model_name=args.model_name)
@@ -343,11 +345,7 @@ if __name__ == "__main__":
             }
         result_json = json.dumps(result_json, indent=4)
 
-        save_result_folder = f"./saved_results/{args.model_name}/{args.dataset_name}"
-        os.makedirs(save_result_folder, exist_ok=True)
-        save_result_path = os.path.join(save_result_folder, f"{args.save_model_name}.json")
-
-        with open(save_result_path, 'w') as file:
+        with open(f'{save_result_folder}/main.json', 'w') as file:
             file.write(result_json)
 
     # store the average metrics at the log of the last run
