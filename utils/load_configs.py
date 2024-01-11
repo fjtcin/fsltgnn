@@ -13,7 +13,7 @@ def get_link_prediction_args():
     parser = argparse.ArgumentParser('Interface for the link prediction task')
     parser.add_argument('--dataset_name', type=str, help='dataset to be used', default='wikipedia',
                         choices=['wikipedia', 'moocact', 'bitcoinalpha', 'bitcoinotc', 'hyperlink', 'reddit', 'mooc', 'lastfm', 'enron', 'SocialEvo', 'uci', 'Flights', 'CanParl', 'USLegis', 'UNtrade', 'UNvote', 'Contacts'])
-    parser.add_argument('--batch_size', type=int, default=800, help='batch size')
+    parser.add_argument('--batch_size', type=int, default=256, help='batch size')
     parser.add_argument('--model_name', type=str, default='DyGFormer', help='name of the model, note that EdgeBank is only applicable for evaluation',
                         choices=['JODIE', 'DyRep', 'TGAT', 'TGN', 'CAWN', 'EdgeBank', 'TCL', 'GraphMixer', 'DyGFormer'])
     parser.add_argument('--gpu', type=int, default=0, help='number of gpu to use')
@@ -245,7 +245,7 @@ def get_node_classification_args():
     # arguments
     parser = argparse.ArgumentParser('Interface for the node classification task')
     parser.add_argument('--dataset_name', type=str, help='dataset to be used', default='wikipedia', choices=['wikipedia', 'moocact', 'bitcoinalpha', 'bitcoinotc', 'hyperlink', 'reddit'])
-    parser.add_argument('--batch_size', type=int, default=3200, help='batch size')
+    parser.add_argument('--batch_size', type=int, default=256, help='batch size')
     parser.add_argument('--model_name', type=str, default='DyGFormer', help='name of the model',
                         choices=['JODIE', 'DyRep', 'TGAT', 'TGN', 'CAWN', 'TCL', 'GraphMixer', 'DyGFormer'])
     parser.add_argument('--gpu', type=int, default=0, help='number of gpu to use')

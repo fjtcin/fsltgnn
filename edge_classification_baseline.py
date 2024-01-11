@@ -77,7 +77,7 @@ if __name__ == "__main__":
 
         logger.info(f'configuration is {args}')
 
-        save_model_folder = f"./saved_models/{args.model_name}/{args.dataset_name}"
+        save_model_folder = f"./saved_models/{args.model_name}/{args.dataset_name}/"
         os.makedirs(save_model_folder, exist_ok=True)
 
         save_result_folder = f"./saved_results/{args.model_name}/{args.dataset_name}/{args.save_model_name}/"
@@ -201,6 +201,10 @@ if __name__ == "__main__":
 
                 train_idx_data_loader_tqdm.set_description(f'Epoch: {epoch + 1}, train for the {batch_idx + 1}-th batch, train loss: {loss.item()}')
 
+                if args.model_name in ['JODIE', 'DyRep', 'TGN']:
+                        # detach the memories and raw messages of nodes in the memory bank after each batch, so we don't back propagate to the start of time
+                        model[0].memory_bank.detach_memory_bank()
+
             train_total_loss /= (batch_idx + 1)
             train_y_trues = torch.cat(train_y_trues, dim=0)
             train_y_predicts = torch.cat(train_y_predicts, dim=0)
@@ -274,7 +278,7 @@ if __name__ == "__main__":
                                                                              loss_func=loss_func,
                                                                              num_neighbors=args.num_neighbors,
                                                                              time_gap=args.time_gap,
-                                                                             fp=f'{save_result_folder}/_val_best.json')
+                                                                             fp=f'{save_result_folder}/val_best.json')
 
         test_total_loss, test_metrics = evaluate_model_edge_classification(model_name=args.model_name,
                                                                            model=model,

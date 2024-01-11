@@ -10,6 +10,7 @@ import torch
 import torch.nn as nn
 
 from models.TGAT import TGAT
+from models.MemoryModel import MemoryModel, compute_src_dst_node_time_shifts
 from models.CAWN import CAWN
 from models.TCL import TCL
 from models.GraphMixer import GraphMixer
@@ -67,13 +68,21 @@ if __name__ == "__main__":
 
         logger.info(f'configuration is {args}')
 
-        save_model_folder = f"./saved_models/{args.model_name}/{args.dataset_name}"
+        save_model_folder = f"./saved_models/{args.model_name}/{args.dataset_name}/"
         os.makedirs(save_model_folder, exist_ok=True)
 
         # create model
         if args.model_name == 'TGAT':
             dynamic_backbone = TGAT(node_raw_features=node_raw_features, edge_raw_features=edge_raw_features, neighbor_sampler=full_neighbor_sampler,
                                     time_feat_dim=args.time_feat_dim, num_layers=args.num_layers, num_heads=args.num_heads, dropout=args.dropout, device=args.device)
+        elif args.model_name in ['JODIE', 'DyRep', 'TGN']:
+            # four floats that represent the mean and standard deviation of source and destination node time shifts in the training data, which is used for JODIE
+            src_node_mean_time_shift, src_node_std_time_shift, dst_node_mean_time_shift_dst, dst_node_std_time_shift = \
+                compute_src_dst_node_time_shifts(full_data.src_node_ids, full_data.dst_node_ids, full_data.node_interact_times)
+            dynamic_backbone = MemoryModel(node_raw_features=node_raw_features, edge_raw_features=edge_raw_features, neighbor_sampler=full_neighbor_sampler,
+                                           time_feat_dim=args.time_feat_dim, model_name=args.model_name, num_layers=args.num_layers, num_heads=args.num_heads,
+                                           dropout=args.dropout, src_node_mean_time_shift=src_node_mean_time_shift, src_node_std_time_shift=src_node_std_time_shift,
+                                           dst_node_mean_time_shift_dst=dst_node_mean_time_shift_dst, dst_node_std_time_shift=dst_node_std_time_shift, device=args.device)
         elif args.model_name == 'CAWN':
             dynamic_backbone = CAWN(node_raw_features=node_raw_features, edge_raw_features=edge_raw_features, neighbor_sampler=full_neighbor_sampler,
                                     time_feat_dim=args.time_feat_dim, position_feat_dim=args.position_feat_dim, walk_length=args.walk_length,
@@ -112,6 +121,8 @@ if __name__ == "__main__":
             model.train()
             if args.model_name in ['DyRep', 'TGAT', 'TGN', 'CAWN', 'TCL', 'GraphMixer', 'DyGFormer']:
                 model[0].set_neighbor_sampler(full_neighbor_sampler)
+            if args.model_name in ['JODIE', 'DyRep', 'TGN']:
+                model[0].memory_bank.__init_memory_bank__()
 
             # store train losses and metrics
             train_losses = []
@@ -142,6 +153,28 @@ if __name__ == "__main__":
                         model[0].compute_src_dst_node_temporal_embeddings(src_node_ids=batch_neg_src_node_ids,
                                                                           dst_node_ids=batch_neg_dst_node_ids,
                                                                           node_interact_times=batch_node_interact_times,
+                                                                          num_neighbors=args.num_neighbors)
+                elif args.model_name in ['JODIE', 'DyRep', 'TGN']:
+                    # note that negative nodes do not change the memories while the positive nodes change the memories,
+                    # we need to first compute the embeddings of negative nodes for memory-based models
+                    # get temporal embedding of negative source and negative destination nodes
+                    # two Tensors, with shape (batch_size, node_feat_dim)
+                    batch_neg_src_node_embeddings, batch_neg_dst_node_embeddings = \
+                        model[0].compute_src_dst_node_temporal_embeddings(src_node_ids=batch_neg_src_node_ids,
+                                                                          dst_node_ids=batch_neg_dst_node_ids,
+                                                                          node_interact_times=batch_node_interact_times,
+                                                                          edge_ids=None,
+                                                                          edges_are_positive=False,
+                                                                          num_neighbors=args.num_neighbors)
+
+                    # get temporal embedding of source and destination nodes
+                    # two Tensors, with shape (batch_size, node_feat_dim)
+                    batch_src_node_embeddings, batch_dst_node_embeddings = \
+                        model[0].compute_src_dst_node_temporal_embeddings(src_node_ids=batch_src_node_ids,
+                                                                          dst_node_ids=batch_dst_node_ids,
+                                                                          node_interact_times=batch_node_interact_times,
+                                                                          edge_ids=batch_edge_ids,
+                                                                          edges_are_positive=True,
                                                                           num_neighbors=args.num_neighbors)
                 elif args.model_name in ['GraphMixer']:
                     # get temporal embedding of source and destination nodes
@@ -193,6 +226,9 @@ if __name__ == "__main__":
                 optimizer.step()
 
                 full_idx_data_loader_tqdm.set_description(f'Epoch: {epoch + 1}, train for the {batch_idx + 1}-th batch, train loss: {loss.item()}')
+
+                if args.model_name in ['JODIE', 'DyRep', 'TGN']:
+                    model[0].memory_bank.detach_memory_bank()
 
             logger.info(f'Epoch: {epoch + 1}, learning rate: {optimizer.param_groups[0]["lr"]}, train loss: {np.mean(train_losses):.4f}')
 
