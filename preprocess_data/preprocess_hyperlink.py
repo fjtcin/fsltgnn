@@ -74,6 +74,7 @@ def preprocess_data():
     print('number of node features ', node_feats.shape[1])
     print('number of edges ', edge_feats.shape[0] - 1)
     print('number of edge features ', edge_feats.shape[1])
+    print(df['label'].value_counts().sort_index())
 
     df.to_csv(OUT_DF)  # edge-list
     np.save(OUT_FEAT, edge_feats)  # edge features
