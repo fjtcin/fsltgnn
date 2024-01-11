@@ -51,7 +51,7 @@ if __name__ == "__main__":
 
         if args.num_runs > 1: args.seed = run
         set_random_seed(args.seed)
-        args.save_model_name = f'edge_classification_baseline_seed{args.seed}'
+        args.save_model_name = f'edge_classification_e2e_seed{args.seed}'
 
         # set up logger
         logging.basicConfig(level=logging.INFO)
@@ -185,7 +185,8 @@ if __name__ == "__main__":
                 else:
                     raise ValueError(f"Wrong value for model_name {args.model_name}!")
                 # get predicted probabilities, shape (batch_size, )
-                predicts = model[1](input_1=batch_src_node_embeddings, input_2=batch_dst_node_embeddings, times=batch_node_interact_times).squeeze(dim=-1).sigmoid()
+                predicts = model[1](input_1=batch_src_node_embeddings, input_2=batch_dst_node_embeddings, times=batch_node_interact_times)
+                predicts = predicts.sigmoid()
                 labels = torch.from_numpy(batch_labels).float().to(predicts.device)
 
                 loss = loss_func(input=predicts, target=labels)

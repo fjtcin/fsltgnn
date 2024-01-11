@@ -129,8 +129,10 @@ def evaluate_model_link_prediction(model_name: str, model: nn.Module, neighbor_s
             else:
                 raise ValueError(f"Wrong value for model_name {model_name}!")
             # get positive and negative probabilities, shape (batch_size, )
-            positive_probabilities = model[1](input_1=batch_src_node_embeddings, input_2=batch_dst_node_embeddings, times=batch_node_interact_times).squeeze(dim=-1).sigmoid()
-            negative_probabilities = model[1](input_1=batch_neg_src_node_embeddings, input_2=batch_neg_dst_node_embeddings, times=batch_node_interact_times).squeeze(dim=-1).sigmoid()
+            positive_probabilities = model[1](input_1=batch_src_node_embeddings, input_2=batch_dst_node_embeddings, times=batch_node_interact_times)
+            positive_probabilities = positive_probabilities.sigmoid()
+            negative_probabilities = model[1](input_1=batch_neg_src_node_embeddings, input_2=batch_neg_dst_node_embeddings, times=batch_node_interact_times)
+            negative_probabilities = negative_probabilities.sigmoid()
 
             predicts = torch.cat([positive_probabilities, negative_probabilities], dim=0)
             labels = torch.cat([torch.ones_like(positive_probabilities), torch.zeros_like(negative_probabilities)], dim=0)
@@ -220,7 +222,8 @@ def evaluate_model_node_classification(model_name: str, model: nn.Module, neighb
             else:
                 raise ValueError(f"Wrong value for model_name {model_name}!")
             # get predicted probabilities, shape (batch_size, )
-            predicts = model[1](x=batch_src_node_embeddings).squeeze(dim=-1).sigmoid()
+            predicts = model[1](x=batch_src_node_embeddings)
+            predicts = predicts.sigmoid()
             labels = torch.from_numpy(batch_labels).float().to(predicts.device)
 
             loss = loss_func(input=predicts, target=labels)
@@ -265,8 +268,8 @@ def evaluate_model_edge_classification(model_name: str, model: nn.Module, neighb
         # store evaluate losses, trues and predicts
         evaluate_total_loss, evaluate_y_trues, evaluate_y_predicts = 0.0, [], []
         evaluate_idx_data_loader_tqdm = tqdm(evaluate_idx_data_loader, ncols=120)
+        model[1].prototypical_encoding(model[0])
         for batch_idx, evaluate_data_indices in enumerate(evaluate_idx_data_loader_tqdm):
-            model[1].prototypical_encoding(model[0])
             evaluate_data_indices = evaluate_data_indices.numpy()
             batch_src_node_ids, batch_dst_node_ids, batch_node_interact_times, batch_edge_ids, batch_labels = \
                 evaluate_data.src_node_ids[evaluate_data_indices],  evaluate_data.dst_node_ids[evaluate_data_indices], \
@@ -309,7 +312,8 @@ def evaluate_model_edge_classification(model_name: str, model: nn.Module, neighb
             else:
                 raise ValueError(f"Wrong value for model_name {model_name}!")
             # get predicted probabilities, shape (batch_size, )
-            predicts = model[1](input_1=batch_src_node_embeddings, input_2=batch_dst_node_embeddings, times=batch_node_interact_times).squeeze(dim=-1).sigmoid()
+            predicts = model[1](input_1=batch_src_node_embeddings, input_2=batch_dst_node_embeddings, times=batch_node_interact_times)
+            predicts = predicts.sigmoid()
             labels = torch.from_numpy(batch_labels).float().to(predicts.device)
 
             loss = loss_func(input=predicts, target=labels)

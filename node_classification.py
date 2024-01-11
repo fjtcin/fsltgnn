@@ -16,7 +16,7 @@ from models.CAWN import CAWN
 from models.TCL import TCL
 from models.GraphMixer import GraphMixer
 from models.DyGFormer import DyGFormer
-from models.modules import MergeLayer, MLPClassifier
+from models.modules import LinkPredictorBaseline, MLPClassifier
 from utils.utils import set_random_seed, convert_to_gpu, get_parameter_sizes, create_optimizer
 from utils.utils import get_neighbor_sampler
 from evaluate_models_utils import evaluate_model_node_classification
@@ -115,7 +115,7 @@ if __name__ == "__main__":
                                          max_input_sequence_length=args.max_input_sequence_length, device=args.device)
         else:
             raise ValueError(f"Wrong value for model_name {args.model_name}!")
-        link_predictor = MergeLayer(input_dim1=node_raw_features.shape[1], input_dim2=node_raw_features.shape[1],
+        link_predictor = LinkPredictorBaseline(input_dim1=node_raw_features.shape[1], input_dim2=node_raw_features.shape[1],
                                     hidden_dim=node_raw_features.shape[1], output_dim=1)
         model = nn.Sequential(dynamic_backbone, link_predictor)
 
@@ -208,7 +208,8 @@ if __name__ == "__main__":
                     else:
                         raise ValueError(f"Wrong value for model_name {args.model_name}!")
                 # get predicted probabilities, shape (batch_size, )
-                predicts = model[1](x=batch_src_node_embeddings).squeeze(dim=-1).sigmoid()
+                predicts = model[1](x=batch_src_node_embeddings)
+                predicts = predicts.sigmoid()
                 labels = torch.from_numpy(batch_labels).float().to(predicts.device)
 
                 loss = loss_func(input=predicts, target=labels)

@@ -82,6 +82,34 @@ class MergeLayer(nn.Module):
         return h
 
 
+class LinkPredictorBaseline(nn.Module):
+    def __init__(self, input_dim1: int, input_dim2: int, hidden_dim: int, output_dim: int):
+        """
+        Merge Layer to merge two inputs via: input_dim1 + input_dim2 -> hidden_dim -> output_dim.
+        :param input_dim1: int, dimension of first input
+        :param input_dim2: int, dimension of the second input
+        :param hidden_dim: int, hidden dimension
+        :param output_dim: int, dimension of the output
+        """
+        super().__init__()
+        self.fc1 = nn.Linear(input_dim1 + input_dim2, hidden_dim)
+        self.fc2 = nn.Linear(hidden_dim, output_dim)
+        self.act = nn.ReLU()
+
+    def forward(self, input_1: torch.Tensor, input_2: torch.Tensor, times=None):
+        """
+        merge and project the inputs
+        :param input_1: Tensor, shape (*, input_dim1)
+        :param input_2: Tensor, shape (*, input_dim2)
+        :return:
+        """
+        # Tensor, shape (*, input_dim1 + input_dim2)
+        x = torch.cat([input_1, input_2], dim=1)
+        # Tensor, shape (*, output_dim)
+        h = self.fc2(self.act(self.fc1(x)))
+        return h.sigmoid()
+
+
 class LinkPredictor(nn.Module):
     def __init__(self, num_classes, prompt_dim, device, lamb=0):
         super().__init__()
@@ -129,7 +157,7 @@ class MLPClassifier(nn.Module):
         # Tensor, shape (*, 10)
         x = self.dropout(self.act(self.fc2(x)))
         # Tensor, shape (*, 1)
-        return self.fc3(x)
+        return self.fc3(x).squeeze(dim=1)
 
 
 class EdgeClassifierBaseline(nn.Module):
@@ -158,7 +186,7 @@ class EdgeClassifierBaseline(nn.Module):
         # Tensor, shape (*, 10)
         x = self.dropout(self.act(self.fc2(x)))
         # Tensor, shape (*, 1)
-        return self.fc3(x)
+        return self.fc3(x).squeeze(dim=1)
 
     def prototypical_encoding(self, x):
         pass
@@ -178,11 +206,26 @@ class EdgeClassifier(nn.Module):
     def out(self, input):
         return F.normalize(input)
 
-    def forward(self, input_1: torch.Tensor, input_2: torch.Tensor, times: np.ndarray):
+    def forward(self, input_1: torch.Tensor, input_2: torch.Tensor, times: np.ndarray, labels=None, ratio=0.5):
         features = torch.cat([input_1, input_2], dim=1)
         p = self.prompts + self.time_encoder(torch.from_numpy(times).unsqueeze(1).float().to(self.args.device)).squeeze(1) * self.lamb
-        logits = F.normalize((self.out(features) * p)) @ self.prototypical_edges.T
-        return logits[:, 1].squeeze()
+        features = self.out(features) * p
+        if labels is None:
+            logits = F.normalize(features) @ self.prototypical_edges.T
+            return logits[:, 1]
+        else:
+            labels = torch.from_numpy(labels).to(self.args.device)
+            delimiter = int(features.size(0) * ratio)
+            control, experimental = features[:delimiter], features[delimiter:]
+            control_labels, experimental_labels = labels[:delimiter], labels[delimiter:]
+            mask = torch.zeros(self.num_classes, delimiter, device=features.device)
+            mask.scatter_(0, control_labels.unsqueeze(0), 1)
+            features_sum = mask @ control
+            normalized_centers_batch = F.normalize(features_sum)
+            logits = F.normalize(experimental) @ normalized_centers_batch.T
+            cnt_min = torch.sum(mask, dim=1).min()
+            assert cnt_min, "There is no control node for some class, please increase batch_size and/or ratio"
+            return logits[:, 1], experimental_labels, cnt_min
 
     def prototypical_encoding(self, model):
         self.prototypical_edges = torch.zeros(self.num_classes, self.prompts.shape[1], device=self.args.device)

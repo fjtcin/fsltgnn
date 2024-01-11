@@ -276,7 +276,6 @@ def get_node_classification_args():
     parser.add_argument('--seed', type=int, default=0, help='invalid if num_runs > 1')
     parser.add_argument('--test_interval_epochs', type=int, default=10, help='how many epochs to perform testing once')
     parser.add_argument('--load_best_configs', action='store_true', default=False, help='whether to load the best configurations')
-    parser.add_argument('--baseline', action='store_true', default=False, help='edge classification baseline with pre-training')
     parser.add_argument('--no_pre', action='store_true', default=False, help='use link prediction baseline as the pre-training task')
 
     try:
