@@ -5,8 +5,8 @@
 ### GraphMixer
 
 ```bash
-python pre_training.py --dataset_name wikipedia --model_name GraphMixer --load_best_configs --seed 0
-python link_prediction_baseline.py --dataset_name wikipedia --model_name GraphMixer --load_best_configs --seed 0
+python link_prediction.py --dataset_name wikipedia --model_name GraphMixer --load_best_configs --seed 0
+python link_prediction.py --no_pre --dataset_name wikipedia --model_name GraphMixer --load_best_configs --seed 0
 ```
 
 ```bash

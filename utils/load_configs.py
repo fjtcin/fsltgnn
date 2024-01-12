@@ -50,6 +50,7 @@ def get_link_prediction_args():
     parser.add_argument('--negative_sample_strategy', type=str, default='random', choices=['random', 'historical', 'inductive'],
                         help='strategy for the negative edge sampling')
     parser.add_argument('--load_best_configs', action='store_true', default=False, help='whether to load the best configurations')
+    parser.add_argument('--no_pre', action='store_true', default=False, help='use link prediction baseline as the pre-training task')
 
     try:
         args = parser.parse_args()

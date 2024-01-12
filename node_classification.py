@@ -51,8 +51,8 @@ if __name__ == "__main__":
 
         if args.num_runs > 1: args.seed = run
         set_random_seed(args.seed)
-        args.load_model_name = f'{args.model_name}_seed{args.seed}'
-        args.save_model_name = f'node_classification_{args.model_name}_seed{args.seed}'
+        args.load_model_name = 'link_prediction_' + ('baseline_' if args.no_pre else '') + f'seed{args.seed}'
+        args.save_model_name = f'node_classification_seed{args.seed}'
 
         # set up logger
         logging.basicConfig(level=logging.INFO)
