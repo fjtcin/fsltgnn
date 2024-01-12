@@ -83,7 +83,7 @@ class MergeLayer(nn.Module):
 
 
 class LinkPredictorBaseline(nn.Module):
-    def __init__(self, input_dim1: int, input_dim2: int, hidden_dim: int, output_dim: int):
+    def __init__(self, input_dim, hidden_dim: int, output_dim: int):
         """
         Merge Layer to merge two inputs via: input_dim1 + input_dim2 -> hidden_dim -> output_dim.
         :param input_dim1: int, dimension of first input
@@ -92,7 +92,7 @@ class LinkPredictorBaseline(nn.Module):
         :param output_dim: int, dimension of the output
         """
         super().__init__()
-        self.fc1 = nn.Linear(input_dim1 + input_dim2, hidden_dim)
+        self.fc1 = nn.Linear(input_dim, hidden_dim)
         self.fc2 = nn.Linear(hidden_dim, output_dim)
         self.act = nn.ReLU()
 
@@ -111,11 +111,10 @@ class LinkPredictorBaseline(nn.Module):
 
 
 class LinkPredictor(nn.Module):
-    def __init__(self, num_classes, prompt_dim, device, lamb=0):
+    def __init__(self, prompt_dim, lamb=0):
         super().__init__()
-        self.num_classes = num_classes
         self.lamb = lamb
-        self.prompts = nn.Parameter(torch.ones(1, prompt_dim, device=device))
+        self.prompts = nn.Parameter(torch.ones(1, prompt_dim))
         self.time_encoder = TimeEncoder(time_dim=prompt_dim)
 
     def out(self, input):
@@ -188,7 +187,7 @@ class EdgeClassifierBaseline(nn.Module):
         # Tensor, shape (*, 1)
         return self.fc3(x).squeeze(dim=1)
 
-    def prototypical_encoding(self, x):
+    def prototypical_encoding(self, model):
         pass
 
 
@@ -200,7 +199,7 @@ class EdgeClassifier(nn.Module):
         self.train_data = train_data
         self.train_idx_data_loader = train_idx_data_loader
         self.num_classes = train_data.labels.max().item() + 1
-        self.prompts = nn.Parameter(torch.ones(1, prompt_dim, device=args.device))
+        self.prompts = nn.Parameter(torch.ones(1, prompt_dim))
         self.time_encoder = TimeEncoder(time_dim=prompt_dim)
 
     def out(self, input):
@@ -287,6 +286,28 @@ class EdgeClassifier(nn.Module):
             self.prototypical_edges += sum_features_for_each_label
 
         self.prototypical_edges = F.normalize(self.prototypical_edges)
+
+
+class EdgeClassifierLearnable(nn.Module):
+    def __init__(self, num_classes, prompt_dim, lamb=0):
+        super().__init__()
+        self.lamb = lamb
+        self.prompts = nn.Parameter(torch.ones(1, prompt_dim))
+        self.time_encoder = TimeEncoder(time_dim=prompt_dim)
+        self.prototypical_edges = nn.Parameter(torch.rand(num_classes, prompt_dim))
+
+    def out(self, input):
+        return F.normalize(input)
+
+    def forward(self, input_1: torch.Tensor, input_2: torch.Tensor, times: np.ndarray):
+        features = torch.cat([input_1, input_2], dim=1)
+        p = self.prompts + self.time_encoder(torch.from_numpy(times).unsqueeze(1).float().to(features.device)).squeeze(1) * self.lamb
+        features = self.out(features) * p
+        logits = F.normalize(features) @ self.prototypical_edges.T
+        return logits[:, 1]
+
+    def prototypical_encoding(self, model):
+        pass
 
 
 class MultiHeadAttention(nn.Module):

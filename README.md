@@ -12,6 +12,8 @@ python link_prediction_baseline.py --dataset_name wikipedia --model_name GraphMi
 ```bash
 python edge_classification.py --no_pre --dataset_name wikipedia --model_name GraphMixer --load_best_configs --seed 0
 python edge_classification.py --dataset_name wikipedia --model_name GraphMixer --load_best_configs --seed 0
+python edge_classification.py --classifier learnable --no_pre --dataset_name wikipedia --model_name GraphMixer --load_best_configs --seed 0
+python edge_classification.py --classifier learnable --dataset_name wikipedia --model_name GraphMixer --load_best_configs --seed 0
 ```
 
 baseline
