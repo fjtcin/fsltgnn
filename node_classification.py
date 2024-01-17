@@ -51,16 +51,16 @@ if __name__ == "__main__":
 
         if args.num_runs > 1: args.seed = run
         set_random_seed(args.seed)
-        args.load_model_name = 'link_prediction_' + ('baseline_' if args.no_pre else '') + f'seed{args.seed}'
-        args.save_model_name = f'node_classification_seed{args.seed}'
+        args.load_model_name = 'link_prediction' + ('_baseline' if args.no_pre else '')
+        args.save_model_name = 'node_classification'
 
         # set up logger
         logging.basicConfig(level=logging.INFO)
         logger = logging.getLogger()
         logger.setLevel(logging.DEBUG)
-        os.makedirs(f"./logs/{args.model_name}/{args.dataset_name}/{args.save_model_name}/", exist_ok=True)
+        os.makedirs(f"./logs/{args.model_name}/{args.dataset_name}/seed_{args.seed}/{args.save_model_name}/", exist_ok=True)
         # create file handler that logs debug and higher level messages
-        fh = logging.FileHandler(f"./logs/{args.model_name}/{args.dataset_name}/{args.save_model_name}/{str(time.time())}.log")
+        fh = logging.FileHandler(f"./logs/{args.model_name}/{args.dataset_name}/seed_{args.seed}/{args.save_model_name}/{str(time.time())}.log")
         fh.setLevel(logging.DEBUG)
         # create console handler with a higher log level
         ch = logging.StreamHandler()
@@ -78,10 +78,10 @@ if __name__ == "__main__":
 
         logger.info(f'configuration is {args}')
 
-        save_model_folder = f"./saved_models/{args.model_name}/{args.dataset_name}/"
+        save_model_folder = f"./saved_models/{args.model_name}/{args.dataset_name}/seed_{args.seed}/"
         os.makedirs(save_model_folder, exist_ok=True)
 
-        save_result_folder = f"./saved_results/{args.model_name}/{args.dataset_name}/{args.save_model_name}/"
+        save_result_folder = f"./saved_results/{args.model_name}/{args.dataset_name}/seed_{args.seed}/{args.save_model_name}/"
         shutil.rmtree(save_result_folder, ignore_errors=True)
         os.makedirs(save_result_folder, exist_ok=True)
 

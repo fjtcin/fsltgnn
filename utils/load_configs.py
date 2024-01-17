@@ -279,6 +279,7 @@ def get_node_classification_args():
     parser.add_argument('--load_best_configs', action='store_true', default=False, help='whether to load the best configurations')
     parser.add_argument('--no_pre', action='store_true', default=False, help='use link prediction baseline as the pre-training task')
     parser.add_argument('--classifier', type=str, default='mean', choices=['mean', 'learnable', 'baseline'])
+    parser.add_argument('--ratio', type=float, default=0.5, help="ratio of control in train_data")
 
     try:
         args = parser.parse_args()

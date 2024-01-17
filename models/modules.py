@@ -118,7 +118,7 @@ class LinkPredictor(nn.Module):
         self.time_encoder = TimeEncoder(time_dim=prompt_dim)
 
     def out(self, input):
-        return F.normalize(input)
+        return input
 
     def forward(self, input_1, input_2, times):
         src = torch.cat([input_1, input_1], dim=1)
@@ -203,9 +203,9 @@ class EdgeClassifier(nn.Module):
         self.time_encoder = TimeEncoder(time_dim=prompt_dim)
 
     def out(self, input):
-        return F.normalize(input)
+        return input
 
-    def forward(self, input_1: torch.Tensor, input_2: torch.Tensor, times: np.ndarray, labels=None, ratio=0.5):
+    def forward(self, input_1: torch.Tensor, input_2: torch.Tensor, times: np.ndarray, labels=None, ratio=0):
         features = torch.cat([input_1, input_2], dim=1)
         p = self.prompts + self.time_encoder(torch.from_numpy(times).unsqueeze(1).float().to(self.args.device)).squeeze(1) * self.lamb
         features = self.out(features) * p
@@ -220,8 +220,7 @@ class EdgeClassifier(nn.Module):
             mask = torch.zeros(self.num_classes, delimiter, device=features.device)
             mask.scatter_(0, control_labels.unsqueeze(0), 1)
             features_sum = mask @ control
-            normalized_centers_batch = F.normalize(features_sum)
-            logits = F.normalize(experimental) @ normalized_centers_batch.T
+            logits = F.normalize(experimental) @  F.normalize(features_sum).T
             cnt_min = torch.sum(mask, dim=1).min()
             assert cnt_min, "There is no control node for some class, please increase batch_size and/or ratio"
             return logits[:, 1], experimental_labels, cnt_min
@@ -297,13 +296,13 @@ class EdgeClassifierLearnable(nn.Module):
         self.prototypical_edges = nn.Parameter(torch.rand(num_classes, prompt_dim))
 
     def out(self, input):
-        return F.normalize(input)
+        return input
 
     def forward(self, input_1: torch.Tensor, input_2: torch.Tensor, times: np.ndarray):
         features = torch.cat([input_1, input_2], dim=1)
         p = self.prompts + self.time_encoder(torch.from_numpy(times).unsqueeze(1).float().to(features.device)).squeeze(1) * self.lamb
         features = self.out(features) * p
-        logits = F.normalize(features) @ self.prototypical_edges.T
+        logits = F.normalize(features) @ F.normalize(self.prototypical_edges).T
         return logits[:, 1]
 
     def prototypical_encoding(self, model):
