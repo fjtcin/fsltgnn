@@ -175,9 +175,9 @@ def get_link_prediction_data(dataset_name: str, val_ratio: float, test_ratio: fl
     return node_raw_features, edge_raw_features, full_data, train_data, val_data, test_data, new_node_val_data, new_node_test_data
 
 
-def get_node_classification_data(dataset_name: str, val_ratio: float, test_ratio: float):
+def get_edge_classification_data(dataset_name: str, val_ratio: float, test_ratio: float):
     """
-    generate data for node classification task
+    generate data for edge classification task
     :param dataset_name: str, dataset name
     :param val_ratio: float, validation data ratio
     :param test_ratio: float, test data ratio

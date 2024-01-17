@@ -238,13 +238,13 @@ def load_link_prediction_best_configs(args: argparse.Namespace):
         raise ValueError(f"Wrong value for model_name {args.model_name}!")
 
 
-def get_node_classification_args():
+def get_edge_classification_args():
     """
-    get the args for the node classification task
+    get the args for the edge classification task
     :return:
     """
     # arguments
-    parser = argparse.ArgumentParser('Interface for the node classification task')
+    parser = argparse.ArgumentParser('Interface for the edge classification task')
     parser.add_argument('--dataset_name', type=str, help='dataset to be used', default='wikipedia', choices=['wikipedia', 'moocact', 'bitcoinalpha', 'bitcoinotc', 'hyperlink', 'reddit'])
     parser.add_argument('--batch_size', type=int, default=256, help='batch size')
     parser.add_argument('--model_name', type=str, default='DyGFormer', help='name of the model',
@@ -289,14 +289,14 @@ def get_node_classification_args():
         sys.exit()
 
     if args.load_best_configs:
-        load_node_classification_best_configs(args=args)
+        load_edge_classification_best_configs(args=args)
 
     return args
 
 
-def load_node_classification_best_configs(args: argparse.Namespace):
+def load_edge_classification_best_configs(args: argparse.Namespace):
     """
-    load the best configurations for the node classification task
+    load the best configurations for the edge classification task
     :param args: argparse.Namespace
     :return:
     """
