@@ -16,11 +16,11 @@ from models.CAWN import CAWN
 from models.TCL import TCL
 from models.GraphMixer import GraphMixer
 from models.DyGFormer import DyGFormer
-from models.modules import LinkPredictorBaseline, MLPClassifier
+from models.modules import LinkPredictorBaseline, LinkPredictor, EdgeClassifier, EdgeClassifierBaseline, EdgeClassifierLearnable
 from utils.utils import set_random_seed, convert_to_gpu, get_parameter_sizes, create_optimizer
 from utils.utils import get_neighbor_sampler
-from evaluate_models_utils import evaluate_model_node_classification
-from utils.metrics import get_node_classification_metrics
+from evaluate_models_utils import evaluate_model_edge_classification
+from utils.metrics import get_edge_classification_metrics
 from utils.DataLoader import get_idx_data_loader, get_node_classification_data
 from utils.EarlyStopping import EarlyStopping
 from utils.load_configs import get_node_classification_args
@@ -52,7 +52,7 @@ if __name__ == "__main__":
         if args.num_runs > 1: args.seed = run
         set_random_seed(args.seed)
         args.load_model_name = 'link_prediction' + ('_baseline' if args.no_pre else '')
-        args.save_model_name = 'node_classification'
+        args.save_model_name = f'node_classification_{args.classifier}' + (f'--no_pre' if args.no_pre else '')
 
         # set up logger
         logging.basicConfig(level=logging.INFO)
@@ -115,7 +115,8 @@ if __name__ == "__main__":
                                          max_input_sequence_length=args.max_input_sequence_length, device=args.device)
         else:
             raise ValueError(f"Wrong value for model_name {args.model_name}!")
-        link_predictor = LinkPredictorBaseline(input_dim=2*node_raw_features.shape[1], hidden_dim=node_raw_features.shape[1], output_dim=1)
+        link_predictor = LinkPredictorBaseline(input_dim=2*node_raw_features.shape[1], hidden_dim=node_raw_features.shape[1], output_dim=1) \
+            if args.no_pre else LinkPredictor(prompt_dim=2*node_raw_features.shape[1])
         model = nn.Sequential(dynamic_backbone, link_predictor)
 
         # load the saved model in the link prediction task
@@ -124,13 +125,19 @@ if __name__ == "__main__":
         early_stopping.load_checkpoint(model, map_location='cpu')
 
         # create the model for the node classification task
-        node_classifier = MLPClassifier(input_dim=node_raw_features.shape[1], dropout=args.dropout)
-        model = nn.Sequential(model[0], node_classifier)
+        match args.classifier:
+            case 'mean':
+                edge_classifier = EdgeClassifier(args, train_data, train_idx_data_loader, prompt_dim=2*node_raw_features.shape[1])
+            case 'learnable':
+                edge_classifier = EdgeClassifierLearnable(num_classes=train_data.labels.max().item() + 1, prompt_dim=2*node_raw_features.shape[1])
+            case 'baseline':
+                edge_classifier = EdgeClassifierBaseline(input_dim=2*node_raw_features.shape[1], dropout=args.dropout)
+        model = nn.Sequential(model[0], edge_classifier)
         logger.info(f'model -> {model}')
         logger.info(f'model name: {args.model_name}, #parameters: {get_parameter_sizes(model) * 4} B, '
                     f'{get_parameter_sizes(model) * 4 / 1024} KB, {get_parameter_sizes(model) * 4 / 1024 / 1024} MB.')
 
-        # follow previous work, we freeze the dynamic_backbone and only optimize the node_classifier
+        # follow previous work, we freeze the dynamic_backbone and only optimize the edge_classifier
         optimizer = create_optimizer(model=model[1], optimizer_name=args.optimizer, learning_rate=args.learning_rate, weight_decay=args.weight_decay)
 
         model = convert_to_gpu(model, device=args.device)
@@ -207,9 +214,13 @@ if __name__ == "__main__":
                     else:
                         raise ValueError(f"Wrong value for model_name {args.model_name}!")
                 # get predicted probabilities, shape (batch_size, )
-                predicts = model[1](x=batch_src_node_embeddings)
+                if args.classifier == 'mean':
+                    predicts, labels, cnt_mean = model[1](input_1=batch_src_node_embeddings, input_2=batch_src_node_embeddings, times=batch_node_interact_times, labels=batch_labels, ratio=args.ratio)
+                    labels = labels.float()
+                else:
+                    predicts = model[1](input_1=batch_src_node_embeddings, input_2=batch_src_node_embeddings, times=batch_node_interact_times)
+                    labels = torch.from_numpy(batch_labels).float().to(predicts.device)
                 predicts = predicts.sigmoid()
-                labels = torch.from_numpy(batch_labels).float().to(predicts.device)
 
                 loss = loss_func(input=predicts, target=labels)
 
@@ -222,22 +233,26 @@ if __name__ == "__main__":
                 loss.backward()
                 optimizer.step()
 
-                train_idx_data_loader_tqdm.set_description(f'Epoch: {epoch + 1}, train for the {batch_idx + 1}-th batch, train loss: {loss.item()}')
+                if args.classifier == 'mean':
+                    train_idx_data_loader_tqdm.set_description(f'Epoch: {epoch + 1}, train for the {batch_idx + 1}-th batch, train loss: {loss.item():.4f}, cnt_min: {cnt_mean}')
+                else:
+                    train_idx_data_loader_tqdm.set_description(f'Epoch: {epoch + 1}, train for the {batch_idx + 1}-th batch, train loss: {loss.item()}')
 
             train_total_loss /= (batch_idx + 1)
             train_y_trues = torch.cat(train_y_trues, dim=0)
             train_y_predicts = torch.cat(train_y_predicts, dim=0)
 
-            train_metrics = get_node_classification_metrics(predicts=train_y_predicts, labels=train_y_trues)
+            train_metrics = get_edge_classification_metrics(predicts=train_y_predicts, labels=train_y_trues, fp=f'{save_result_folder}/train.json')
 
-            val_total_loss, val_metrics = evaluate_model_node_classification(model_name=args.model_name,
+            val_total_loss, val_metrics = evaluate_model_edge_classification(model_name=args.model_name,
                                                                              model=model,
                                                                              neighbor_sampler=full_neighbor_sampler,
                                                                              evaluate_idx_data_loader=val_idx_data_loader,
                                                                              evaluate_data=val_data,
                                                                              loss_func=loss_func,
                                                                              num_neighbors=args.num_neighbors,
-                                                                             time_gap=args.time_gap)
+                                                                             time_gap=args.time_gap,
+                                                                             fp=f'{save_result_folder}/val.json')
 
             logger.info(f'Epoch: {epoch + 1}, learning rate: {optimizer.param_groups[0]["lr"]}, train loss: {train_total_loss:.4f}')
             for metric_name in train_metrics.keys():
@@ -252,14 +267,15 @@ if __name__ == "__main__":
                     # backup memory bank after validating so it can be used for testing nodes (since test edges are strictly later in time than validation edges)
                     val_backup_memory_bank = model[0].memory_bank.backup_memory_bank()
 
-                test_total_loss, test_metrics = evaluate_model_node_classification(model_name=args.model_name,
+                test_total_loss, test_metrics = evaluate_model_edge_classification(model_name=args.model_name,
                                                                                    model=model,
                                                                                    neighbor_sampler=full_neighbor_sampler,
                                                                                    evaluate_idx_data_loader=test_idx_data_loader,
                                                                                    evaluate_data=test_data,
                                                                                    loss_func=loss_func,
                                                                                    num_neighbors=args.num_neighbors,
-                                                                                   time_gap=args.time_gap)
+                                                                                   time_gap=args.time_gap,
+                                                                                   fp=f'{save_result_folder}/test.json')
 
                 if args.model_name in ['JODIE', 'DyRep', 'TGN']:
                     # reload validation memory bank for saving models
@@ -287,23 +303,25 @@ if __name__ == "__main__":
 
         # the saved best model of memory-based models cannot perform validation since the stored memory has been updated by validation data
         if args.model_name not in ['JODIE', 'DyRep', 'TGN']:
-            val_total_loss, val_metrics = evaluate_model_node_classification(model_name=args.model_name,
+            val_total_loss, val_metrics = evaluate_model_edge_classification(model_name=args.model_name,
                                                                              model=model,
                                                                              neighbor_sampler=full_neighbor_sampler,
                                                                              evaluate_idx_data_loader=val_idx_data_loader,
                                                                              evaluate_data=val_data,
                                                                              loss_func=loss_func,
                                                                              num_neighbors=args.num_neighbors,
-                                                                             time_gap=args.time_gap)
+                                                                             time_gap=args.time_gap,
+                                                                             fp=f'{save_result_folder}/val_best.json')
 
-        test_total_loss, test_metrics = evaluate_model_node_classification(model_name=args.model_name,
+        test_total_loss, test_metrics = evaluate_model_edge_classification(model_name=args.model_name,
                                                                            model=model,
                                                                            neighbor_sampler=full_neighbor_sampler,
                                                                            evaluate_idx_data_loader=test_idx_data_loader,
                                                                            evaluate_data=test_data,
                                                                            loss_func=loss_func,
                                                                            num_neighbors=args.num_neighbors,
-                                                                           time_gap=args.time_gap)
+                                                                           time_gap=args.time_gap,
+                                                                           fp=f'{save_result_folder}/test_best.json')
 
         # store the evaluation metrics at the current run
         val_metric_dict, test_metric_dict = {}, {}
