@@ -42,8 +42,8 @@ def get_link_prediction_args():
     parser.add_argument('--optimizer', type=str, default='Adam', choices=['SGD', 'Adam', 'RMSprop'], help='name of optimizer')
     parser.add_argument('--weight_decay', type=float, default=0.0, help='weight decay')
     parser.add_argument('--patience', type=int, default=20, help='patience for early stopping')
-    parser.add_argument('--val_ratio', type=float, default=0.15, help='ratio of validation set')
-    parser.add_argument('--test_ratio', type=float, default=0.15, help='ratio of test set')
+    parser.add_argument('--val_ratio', type=float, default=0.1, help='ratio of validation set')
+    parser.add_argument('--test_ratio', type=float, default=0.3, help='ratio of test set')
     parser.add_argument('--num_runs', type=int, default=1, help='number of runs')
     parser.add_argument('--seed', type=int, default=0, help='invalid if num_runs > 1')
     parser.add_argument('--test_interval_epochs', type=int, default=10, help='how many epochs to perform testing once')
@@ -271,8 +271,9 @@ def get_edge_classification_args():
     parser.add_argument('--optimizer', type=str, default='Adam', choices=['SGD', 'Adam', 'RMSprop'], help='name of optimizer')
     parser.add_argument('--weight_decay', type=float, default=0.0, help='weight decay')
     parser.add_argument('--patience', type=int, default=20, help='patience for early stopping')
-    parser.add_argument('--val_ratio', type=float, default=0.15, help='ratio of validation set')
-    parser.add_argument('--test_ratio', type=float, default=0.7, help='ratio of test set')
+    parser.add_argument('--full_ratio', type=float, default=0.3, help='ratio of validation set')
+    parser.add_argument('--val_ratio', type=float, default=0.05, help='ratio of validation set')
+    parser.add_argument('--test_ratio', type=float, default=0.2, help='ratio of test set')
     parser.add_argument('--num_runs', type=int, default=1, help='number of runs')
     parser.add_argument('--seed', type=int, default=0, help='invalid if num_runs > 1')
     parser.add_argument('--test_interval_epochs', type=int, default=10, help='how many epochs to perform testing once')
@@ -329,12 +330,12 @@ def load_edge_classification_best_configs(args: argparse.Namespace):
             args.sample_neighbor_strategy = 'recent'
     elif args.model_name == 'GraphMixer':
         args.num_layers = 2
-        if args.dataset_name in ['reddit']:
-            args.num_neighbors = 10
-        elif args.dataset_name in ['bitcoinalpha']:
-            args.num_neighbors = 20
-        else:
+        if args.dataset_name in ['wikipedia']:
             args.num_neighbors = 30
+        elif args.dataset_name in ['reddit', 'lastfm']:
+            args.num_neighbors = 10
+        else:
+            args.num_neighbors = 20
         args.dropout = 0.5
         args.sample_neighbor_strategy = 'recent'
     elif args.model_name == 'DyGFormer':

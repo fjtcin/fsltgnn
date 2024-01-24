@@ -21,20 +21,20 @@ from utils.utils import set_random_seed, convert_to_gpu, get_parameter_sizes, cr
 from utils.utils import get_neighbor_sampler
 from evaluate_models_utils import evaluate_model_edge_classification
 from utils.metrics import get_edge_classification_metrics
-from utils.DataLoader import get_idx_data_loader, get_node_classification_data
+from utils.DataLoader import get_idx_data_loader, get_edge_classification_data
 from utils.EarlyStopping import EarlyStopping
-from utils.load_configs import get_node_classification_args
+from utils.load_configs import get_edge_classification_args
 
 if __name__ == "__main__":
 
     warnings.filterwarnings('ignore')
 
     # get arguments
-    args = get_node_classification_args()
+    args = get_edge_classification_args()
 
     # get data for training, validation and testing
-    node_raw_features, edge_raw_features, full_data, train_data, val_data, test_data = \
-        get_node_classification_data(dataset_name=args.dataset_name, val_ratio=args.val_ratio, test_ratio=args.test_ratio)
+    node_raw_features, edge_raw_features, full_data, train_data, val_data, test_data, new_node_val_data, new_node_test_data = \
+        get_edge_classification_data(dataset_name=args.dataset_name, full_ratio=args.full_ratio, val_ratio=args.val_ratio, test_ratio=args.test_ratio)
 
     # initialize validation and test neighbor sampler to retrieve temporal graph
     full_neighbor_sampler = get_neighbor_sampler(data=full_data, sample_neighbor_strategy=args.sample_neighbor_strategy,
@@ -43,9 +43,11 @@ if __name__ == "__main__":
     # get data loaders
     train_idx_data_loader = get_idx_data_loader(indices_list=list(range(len(train_data.src_node_ids))), batch_size=args.batch_size, shuffle=False)
     val_idx_data_loader = get_idx_data_loader(indices_list=list(range(len(val_data.src_node_ids))), batch_size=args.batch_size, shuffle=False)
+    new_node_val_idx_data_loader = get_idx_data_loader(indices_list=list(range(len(new_node_val_data.src_node_ids))), batch_size=args.batch_size, shuffle=False)
     test_idx_data_loader = get_idx_data_loader(indices_list=list(range(len(test_data.src_node_ids))), batch_size=args.batch_size, shuffle=False)
+    new_node_test_idx_data_loader = get_idx_data_loader(indices_list=list(range(len(new_node_test_data.src_node_ids))), batch_size=args.batch_size, shuffle=False)
 
-    val_metric_all_runs, test_metric_all_runs = [], []
+    val_metric_all_runs, new_node_val_metric_all_runs, test_metric_all_runs, new_node_test_metric_all_runs = [], [], [], []
 
     for run in range(args.num_runs):
 
@@ -242,7 +244,11 @@ if __name__ == "__main__":
             train_y_trues = torch.cat(train_y_trues, dim=0)
             train_y_predicts = torch.cat(train_y_predicts, dim=0)
 
-            train_metrics = get_edge_classification_metrics(predicts=train_y_predicts, labels=train_y_trues, fp=f'{save_result_folder}/train.json')
+            train_metrics = get_edge_classification_metrics(predicts=train_y_predicts, labels=train_y_trues)
+
+            if args.model_name in ['JODIE', 'DyRep', 'TGN']:
+                # backup memory bank after training so it can be used for new validation nodes
+                train_backup_memory_bank = model[0].memory_bank.backup_memory_bank()
 
             val_total_loss, val_metrics = evaluate_model_edge_classification(model_name=args.model_name,
                                                                              model=model,
@@ -251,8 +257,28 @@ if __name__ == "__main__":
                                                                              evaluate_data=val_data,
                                                                              loss_func=loss_func,
                                                                              num_neighbors=args.num_neighbors,
-                                                                             time_gap=args.time_gap,
-                                                                             fp=f'{save_result_folder}/val.json')
+                                                                             time_gap=args.time_gap)
+
+            if args.model_name in ['JODIE', 'DyRep', 'TGN']:
+                # backup memory bank after validating so it can be used for testing nodes (since test edges are strictly later in time than validation edges)
+                val_backup_memory_bank = model[0].memory_bank.backup_memory_bank()
+
+                # reload training memory bank for new validation nodes
+                model[0].memory_bank.reload_memory_bank(train_backup_memory_bank)
+
+            new_node_val_total_loss, new_node_val_metrics = evaluate_model_edge_classification(model_name=args.model_name,
+                                                                                       model=model,
+                                                                                       neighbor_sampler=full_neighbor_sampler,
+                                                                                       evaluate_idx_data_loader=new_node_val_idx_data_loader,
+                                                                                       evaluate_data=new_node_val_data,
+                                                                                       loss_func=loss_func,
+                                                                                       num_neighbors=args.num_neighbors,
+                                                                                       time_gap=args.time_gap)
+
+            if args.model_name in ['JODIE', 'DyRep', 'TGN']:
+                # reload validation memory bank for testing nodes or saving models
+                # note that since model treats memory as parameters, we need to reload the memory to val_backup_memory_bank for saving models
+                model[0].memory_bank.reload_memory_bank(val_backup_memory_bank)
 
             logger.info(f'Epoch: {epoch + 1}, learning rate: {optimizer.param_groups[0]["lr"]}, train loss: {train_total_loss:.4f}')
             for metric_name in train_metrics.keys():
@@ -260,13 +286,12 @@ if __name__ == "__main__":
             logger.info(f'validate loss: {val_total_loss:.4f}')
             for metric_name in val_metrics.keys():
                 logger.info(f'validate {metric_name}, {val_metrics[metric_name]:.4f}')
+            logger.info(f'new node validate loss: {new_node_val_total_loss:.4f}')
+            for metric_name in new_node_val_metrics.keys():
+                logger.info(f'new node validate {metric_name}, {new_node_val_metrics[metric_name]:.4f}')
 
             # perform testing once after test_interval_epochs
             if (epoch + 1) % args.test_interval_epochs == 0:
-                if args.model_name in ['JODIE', 'DyRep', 'TGN']:
-                    # backup memory bank after validating so it can be used for testing nodes (since test edges are strictly later in time than validation edges)
-                    val_backup_memory_bank = model[0].memory_bank.backup_memory_bank()
-
                 test_total_loss, test_metrics = evaluate_model_edge_classification(model_name=args.model_name,
                                                                                    model=model,
                                                                                    neighbor_sampler=full_neighbor_sampler,
@@ -274,17 +299,32 @@ if __name__ == "__main__":
                                                                                    evaluate_data=test_data,
                                                                                    loss_func=loss_func,
                                                                                    num_neighbors=args.num_neighbors,
-                                                                                   time_gap=args.time_gap,
-                                                                                   fp=f'{save_result_folder}/test.json')
+                                                                                   time_gap=args.time_gap)
 
                 if args.model_name in ['JODIE', 'DyRep', 'TGN']:
-                    # reload validation memory bank for saving models
+                    # reload validation memory bank for new testing nodes
+                    model[0].memory_bank.reload_memory_bank(val_backup_memory_bank)
+
+                new_node_test_total_loss, new_node_test_metrics = evaluate_model_edge_classification(model_name=args.model_name,
+                                                                                             model=model,
+                                                                                             neighbor_sampler=full_neighbor_sampler,
+                                                                                             evaluate_idx_data_loader=new_node_test_idx_data_loader,
+                                                                                             evaluate_data=new_node_test_data,
+                                                                                             loss_func=loss_func,
+                                                                                             num_neighbors=args.num_neighbors,
+                                                                                             time_gap=args.time_gap)
+
+                if args.model_name in ['JODIE', 'DyRep', 'TGN']:
+                    # reload validation memory bank for testing nodes or saving models
                     # note that since model treats memory as parameters, we need to reload the memory to val_backup_memory_bank for saving models
                     model[0].memory_bank.reload_memory_bank(val_backup_memory_bank)
 
                 logger.info(f'test loss: {test_total_loss:.4f}')
                 for metric_name in test_metrics.keys():
                     logger.info(f'test {metric_name}, {test_metrics[metric_name]:.4f}')
+                logger.info(f'new node test loss: {new_node_test_total_loss:.4f}')
+                for metric_name in new_node_test_metrics.keys():
+                    logger.info(f'new node test {metric_name}, {new_node_test_metrics[metric_name]:.4f}')
 
             # select the best model based on all the validate metrics
             val_metric_indicator = []
@@ -313,6 +353,20 @@ if __name__ == "__main__":
                                                                              time_gap=args.time_gap,
                                                                              fp=f'{save_result_folder}/val_best.json')
 
+            new_node_val_total_loss, new_node_val_metrics = evaluate_model_edge_classification(model_name=args.model_name,
+                                                                                       model=model,
+                                                                                       neighbor_sampler=full_neighbor_sampler,
+                                                                                       evaluate_idx_data_loader=new_node_val_idx_data_loader,
+                                                                                       evaluate_data=new_node_val_data,
+                                                                                       loss_func=loss_func,
+                                                                                       num_neighbors=args.num_neighbors,
+                                                                                       time_gap=args.time_gap,
+                                                                                       fp=f'{save_result_folder}/new_node_val_best.json')
+
+        if args.model_name in ['JODIE', 'DyRep', 'TGN']:
+            # the memory in the best model has seen the validation edges, we need to backup the memory for new testing nodes
+            val_backup_memory_bank = model[0].memory_bank.backup_memory_bank()
+
         test_total_loss, test_metrics = evaluate_model_edge_classification(model_name=args.model_name,
                                                                            model=model,
                                                                            neighbor_sampler=full_neighbor_sampler,
@@ -323,8 +377,22 @@ if __name__ == "__main__":
                                                                            time_gap=args.time_gap,
                                                                            fp=f'{save_result_folder}/test_best.json')
 
+        if args.model_name in ['JODIE', 'DyRep', 'TGN']:
+            # reload validation memory bank for new testing nodes
+            model[0].memory_bank.reload_memory_bank(val_backup_memory_bank)
+
+        new_node_test_total_loss, new_node_test_metrics = evaluate_model_edge_classification(model_name=args.model_name,
+                                                                                     model=model,
+                                                                                     neighbor_sampler=full_neighbor_sampler,
+                                                                                     evaluate_idx_data_loader=new_node_test_idx_data_loader,
+                                                                                     evaluate_data=new_node_test_data,
+                                                                                     loss_func=loss_func,
+                                                                                     num_neighbors=args.num_neighbors,
+                                                                                     time_gap=args.time_gap,
+                                                                                     fp=f'{save_result_folder}/new_node_test_best.json')
+
         # store the evaluation metrics at the current run
-        val_metric_dict, test_metric_dict = {}, {}
+        val_metric_dict, new_node_val_metric_dict, test_metric_dict, new_node_test_metric_dict = {}, {}, {}, {}
 
         if args.model_name not in ['JODIE', 'DyRep', 'TGN']:
             logger.info(f'validate loss: {val_total_loss:.4f}')
@@ -333,18 +401,32 @@ if __name__ == "__main__":
                 logger.info(f'validate {metric_name}, {val_metric:.4f}')
                 val_metric_dict[metric_name] = val_metric
 
+            logger.info(f'new node validate loss: {new_node_val_total_loss:.4f}')
+            for metric_name in new_node_val_metrics.keys():
+                new_node_val_metric = new_node_val_metrics[metric_name]
+                logger.info(f'new node validate {metric_name}, {new_node_val_metric:.4f}')
+                new_node_val_metric_dict[metric_name] = new_node_val_metric
+
         logger.info(f'test loss: {test_total_loss:.4f}')
         for metric_name in test_metrics.keys():
             test_metric = test_metrics[metric_name]
             logger.info(f'test {metric_name}, {test_metric:.4f}')
             test_metric_dict[metric_name] = test_metric
 
+        logger.info(f'new node test loss: {new_node_test_total_loss:.4f}')
+        for metric_name in new_node_test_metrics.keys():
+            new_node_test_metric = new_node_test_metrics[metric_name]
+            logger.info(f'new node test {metric_name}, {new_node_test_metric:.4f}')
+            new_node_test_metric_dict[metric_name] = new_node_test_metric
+
         single_run_time = time.time() - run_start_time
         logger.info(f'Run {run + 1} cost {single_run_time:.2f} seconds.')
 
         if args.model_name not in ['JODIE', 'DyRep', 'TGN']:
             val_metric_all_runs.append(val_metric_dict)
+            new_node_val_metric_all_runs.append(new_node_val_metric_dict)
         test_metric_all_runs.append(test_metric_dict)
+        new_node_test_metric_all_runs.append(new_node_test_metric_dict)
 
         # avoid the overlap of logs
         if run < args.num_runs - 1:
@@ -355,11 +437,14 @@ if __name__ == "__main__":
         if args.model_name not in ['JODIE', 'DyRep', 'TGN']:
             result_json = {
                 "validate metrics": {metric_name: f'{val_metric_dict[metric_name]:.4f}' for metric_name in val_metric_dict},
-                "test metrics": {metric_name: f'{test_metric_dict[metric_name]:.4f}' for metric_name in test_metric_dict}
+                "new node validate metrics": {metric_name: f'{new_node_val_metric_dict[metric_name]:.4f}' for metric_name in new_node_val_metric_dict},
+                "test metrics": {metric_name: f'{test_metric_dict[metric_name]:.4f}' for metric_name in test_metric_dict},
+                "new node test metrics": {metric_name: f'{new_node_test_metric_dict[metric_name]:.4f}' for metric_name in new_node_test_metric_dict}
             }
         else:
             result_json = {
-                "test metrics": {metric_name: f'{test_metric_dict[metric_name]:.4f}' for metric_name in test_metric_dict}
+                "test metrics": {metric_name: f'{test_metric_dict[metric_name]:.4f}' for metric_name in test_metric_dict},
+                "new node test metrics": {metric_name: f'{new_node_test_metric_dict[metric_name]:.4f}' for metric_name in new_node_test_metric_dict}
             }
         result_json = json.dumps(result_json, indent=4)
 
@@ -375,9 +460,19 @@ if __name__ == "__main__":
             logger.info(f'average validate {metric_name}, {np.mean([val_metric_single_run[metric_name] for val_metric_single_run in val_metric_all_runs]):.4f} '
                         f'± {np.std([val_metric_single_run[metric_name] for val_metric_single_run in val_metric_all_runs], ddof=1):.4f}')
 
+        for metric_name in new_node_val_metric_all_runs[0].keys():
+            logger.info(f'new node validate {metric_name}, {[new_node_val_metric_single_run[metric_name] for new_node_val_metric_single_run in new_node_val_metric_all_runs]}')
+            logger.info(f'average new node validate {metric_name}, {np.mean([new_node_val_metric_single_run[metric_name] for new_node_val_metric_single_run in new_node_val_metric_all_runs]):.4f} '
+                        f'± {np.std([new_node_val_metric_single_run[metric_name] for new_node_val_metric_single_run in new_node_val_metric_all_runs], ddof=1):.4f}')
+
     for metric_name in test_metric_all_runs[0].keys():
         logger.info(f'test {metric_name}, {[test_metric_single_run[metric_name] for test_metric_single_run in test_metric_all_runs]}')
         logger.info(f'average test {metric_name}, {np.mean([test_metric_single_run[metric_name] for test_metric_single_run in test_metric_all_runs]):.4f} '
                     f'± {np.std([test_metric_single_run[metric_name] for test_metric_single_run in test_metric_all_runs], ddof=1):.4f}')
+
+    for metric_name in new_node_test_metric_all_runs[0].keys():
+        logger.info(f'new node test {metric_name}, {[new_node_test_metric_single_run[metric_name] for new_node_test_metric_single_run in new_node_test_metric_all_runs]}')
+        logger.info(f'average new node test {metric_name}, {np.mean([new_node_test_metric_single_run[metric_name] for new_node_test_metric_single_run in new_node_test_metric_all_runs]):.4f} '
+                    f'± {np.std([new_node_test_metric_single_run[metric_name] for new_node_test_metric_single_run in new_node_test_metric_all_runs], ddof=1):.4f}')
 
     sys.exit()
