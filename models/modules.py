@@ -123,7 +123,6 @@ class LinkPredictor(nn.Module):
     def forward(self, input_1, input_2, times):
         src = torch.cat([input_1, input_1], dim=1)
         dst = torch.cat([input_2, input_2], dim=1)
-        #TODO: make the times on GPU at first
         p = self.prompts + self.time_encoder(torch.from_numpy(times).unsqueeze(1).float().to(src.device)).squeeze(1) * self.lamb
         src = self.out(src) * p
         dst = self.out(dst) * p

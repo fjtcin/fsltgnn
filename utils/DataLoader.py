@@ -94,10 +94,10 @@ def get_link_prediction_data(dataset_name: str, val_ratio: float, test_ratio: fl
     # get the timestamp of validate and test set
     val_time, test_time = list(np.quantile(graph_df.ts, [(1 - val_ratio - test_ratio), (1 - test_ratio)]))
 
-    src_node_ids = graph_df.u.values.astype(np.longlong)
-    dst_node_ids = graph_df.i.values.astype(np.longlong)
-    node_interact_times = graph_df.ts.values.astype(np.float64)
-    edge_ids = graph_df.idx.values.astype(np.longlong)
+    src_node_ids = graph_df.u.values
+    dst_node_ids = graph_df.i.values
+    node_interact_times = graph_df.ts.values
+    edge_ids = graph_df.idx.values
     labels = graph_df.label.values
 
     full_data = Data(src_node_ids=src_node_ids, dst_node_ids=dst_node_ids, node_interact_times=node_interact_times, edge_ids=edge_ids, labels=labels)
@@ -207,10 +207,10 @@ def get_edge_classification_data(dataset_name: str, full_ratio, val_ratio: float
     full_mask = graph_df.ts > full_time
     graph_df = graph_df[full_mask]
 
-    src_node_ids = graph_df.u.values.astype(np.longlong)
-    dst_node_ids = graph_df.i.values.astype(np.longlong)
-    node_interact_times = graph_df.ts.values.astype(np.float64)
-    edge_ids = graph_df.idx.values.astype(np.longlong)
+    src_node_ids = graph_df.u.values
+    dst_node_ids = graph_df.i.values
+    node_interact_times = graph_df.ts.values
+    edge_ids = graph_df.idx.values
     labels = graph_df.label.values
 
     full_data = Data(src_node_ids=src_node_ids, dst_node_ids=dst_node_ids, node_interact_times=node_interact_times, edge_ids=edge_ids, labels=labels)
