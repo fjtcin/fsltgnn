@@ -47,8 +47,6 @@ def get_link_prediction_args():
     parser.add_argument('--num_runs', type=int, default=1, help='number of runs')
     parser.add_argument('--seed', type=int, default=0, help='invalid if num_runs > 1')
     parser.add_argument('--test_interval_epochs', type=int, default=10, help='how many epochs to perform testing once')
-    parser.add_argument('--negative_sample_strategy', type=str, default='random', choices=['random', 'historical', 'inductive'],
-                        help='strategy for the negative edge sampling')
     parser.add_argument('--load_best_configs', action='store_true', default=False, help='whether to load the best configurations')
     parser.add_argument('--no_pre', action='store_true', default=False, help='use link prediction baseline as the pre-training task')
 
@@ -134,40 +132,17 @@ def load_link_prediction_best_configs(args: argparse.Namespace):
             args.dropout = 0.1
         args.sample_neighbor_strategy = 'time_interval_aware'
     elif args.model_name == 'EdgeBank':
-        if args.negative_sample_strategy == 'random':
-            if args.dataset_name in ['wikipedia', 'reddit', 'uci', 'Flights']:
-                args.edge_bank_memory_mode = 'unlimited_memory'
-            elif args.dataset_name in ['mooc', 'lastfm', 'enron', 'CanParl', 'USLegis']:
-                args.edge_bank_memory_mode = 'time_window_memory'
-                args.time_window_mode = 'fixed_proportion'
-            elif args.dataset_name in ['UNtrade', 'UNvote', 'Contacts']:
-                args.edge_bank_memory_mode = 'time_window_memory'
-                args.time_window_mode = 'repeat_interval'
-            else:
-                assert args.dataset_name == 'SocialEvo'
-                args.edge_bank_memory_mode = 'repeat_threshold_memory'
-        elif args.negative_sample_strategy == 'historical':
-            if args.dataset_name in ['uci', 'CanParl', 'USLegis']:
-                args.edge_bank_memory_mode = 'time_window_memory'
-                args.time_window_mode = 'fixed_proportion'
-            elif args.dataset_name in ['mooc', 'lastfm', 'enron', 'UNtrade', 'UNvote', 'Contacts']:
-                args.edge_bank_memory_mode = 'time_window_memory'
-                args.time_window_mode = 'repeat_interval'
-            else:
-                assert args.dataset_name in ['wikipedia', 'reddit', 'SocialEvo', 'Flights']
-                args.edge_bank_memory_mode = 'repeat_threshold_memory'
+        if args.dataset_name in ['wikipedia', 'reddit', 'uci', 'Flights']:
+            args.edge_bank_memory_mode = 'unlimited_memory'
+        elif args.dataset_name in ['mooc', 'lastfm', 'enron', 'CanParl', 'USLegis']:
+            args.edge_bank_memory_mode = 'time_window_memory'
+            args.time_window_mode = 'fixed_proportion'
+        elif args.dataset_name in ['UNtrade', 'UNvote', 'Contacts']:
+            args.edge_bank_memory_mode = 'time_window_memory'
+            args.time_window_mode = 'repeat_interval'
         else:
-            assert args.negative_sample_strategy == 'inductive'
-            if args.dataset_name in ['USLegis']:
-                args.edge_bank_memory_mode = 'time_window_memory'
-                args.time_window_mode = 'fixed_proportion'
-            elif args.dataset_name in ['uci', 'UNvote']:
-                args.edge_bank_memory_mode = 'time_window_memory'
-                args.time_window_mode = 'repeat_interval'
-            else:
-                assert args.dataset_name in ['wikipedia', 'reddit', 'mooc', 'lastfm', 'enron',
-                                             'SocialEvo', 'Flights', 'CanParl', 'UNtrade', 'Contacts']
-                args.edge_bank_memory_mode = 'repeat_threshold_memory'
+            assert args.dataset_name == 'SocialEvo'
+            args.edge_bank_memory_mode = 'repeat_threshold_memory'
     elif args.model_name == 'TCL':
         args.num_neighbors = 20
         args.num_layers = 2
@@ -271,7 +246,7 @@ def get_edge_classification_args():
     parser.add_argument('--optimizer', type=str, default='Adam', choices=['SGD', 'Adam', 'RMSprop'], help='name of optimizer')
     parser.add_argument('--weight_decay', type=float, default=0.0, help='weight decay')
     parser.add_argument('--patience', type=int, default=20, help='patience for early stopping')
-    parser.add_argument('--full_ratio', type=float, default=0.3, help='ratio of validation set')
+    parser.add_argument('--full_ratio', type=float, default=0.3, help='ratio of full downstream set')
     parser.add_argument('--val_ratio', type=float, default=0.05, help='ratio of validation set')
     parser.add_argument('--test_ratio', type=float, default=0.2, help='ratio of test set')
     parser.add_argument('--num_runs', type=int, default=1, help='number of runs')

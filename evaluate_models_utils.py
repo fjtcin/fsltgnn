@@ -44,15 +44,8 @@ def evaluate_model_link_prediction(model_name: str, model: nn.Module, neighbor_s
                 evaluate_data.src_node_ids[evaluate_data_indices],  evaluate_data.dst_node_ids[evaluate_data_indices], \
                 evaluate_data.node_interact_times[evaluate_data_indices], evaluate_data.edge_ids[evaluate_data_indices]
 
-            if evaluate_neg_edge_sampler.negative_sample_strategy != 'random':
-                batch_neg_src_node_ids, batch_neg_dst_node_ids = evaluate_neg_edge_sampler.sample(size=len(batch_src_node_ids),
-                                                                                                  batch_src_node_ids=batch_src_node_ids,
-                                                                                                  batch_dst_node_ids=batch_dst_node_ids,
-                                                                                                  current_batch_start_time=batch_node_interact_times[0],
-                                                                                                  current_batch_end_time=batch_node_interact_times[-1])
-            else:
-                _, batch_neg_dst_node_ids = evaluate_neg_edge_sampler.sample(size=len(batch_src_node_ids))
-                batch_neg_src_node_ids = batch_src_node_ids
+            batch_neg_dst_node_ids = evaluate_neg_edge_sampler.sample(batch_src_node_ids)
+            batch_neg_src_node_ids = batch_src_node_ids
 
             # we need to compute for positive and negative edges respectively, because the new sampling strategy (for evaluation) allows the negative source nodes to be
             # different from the source nodes, this is different from previous works that just replace destination nodes with negative destination nodes

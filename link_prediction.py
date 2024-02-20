@@ -47,11 +47,11 @@ if __name__ == "__main__":
     # initialize negative samplers, set seeds for validation and testing so negatives are the same across different runs
     # in the inductive setting, negatives are sampled only amongst other new nodes
     # train negative edge sampler does not need to specify the seed, but evaluation samplers need to do so
-    train_neg_edge_sampler = NegativeEdgeSampler(src_node_ids=train_data.src_node_ids, dst_node_ids=train_data.dst_node_ids)
-    val_neg_edge_sampler = NegativeEdgeSampler(src_node_ids=full_data.src_node_ids, dst_node_ids=full_data.dst_node_ids, seed=0)
-    new_node_val_neg_edge_sampler = NegativeEdgeSampler(src_node_ids=new_node_val_data.src_node_ids, dst_node_ids=new_node_val_data.dst_node_ids, seed=1)
-    test_neg_edge_sampler = NegativeEdgeSampler(src_node_ids=full_data.src_node_ids, dst_node_ids=full_data.dst_node_ids, seed=2)
-    new_node_test_neg_edge_sampler = NegativeEdgeSampler(src_node_ids=new_node_test_data.src_node_ids, dst_node_ids=new_node_test_data.dst_node_ids, seed=3)
+    train_neg_edge_sampler = NegativeEdgeSampler(dst_node_ids=train_data.dst_node_ids)
+    val_neg_edge_sampler = NegativeEdgeSampler(dst_node_ids=full_data.dst_node_ids, seed=0)
+    new_node_val_neg_edge_sampler = NegativeEdgeSampler(dst_node_ids=new_node_val_data.dst_node_ids, seed=1)
+    test_neg_edge_sampler = NegativeEdgeSampler(dst_node_ids=full_data.dst_node_ids, seed=2)
+    new_node_test_neg_edge_sampler = NegativeEdgeSampler(dst_node_ids=new_node_test_data.dst_node_ids, seed=3)
 
     # get data loaders
     train_idx_data_loader = get_idx_data_loader(indices_list=list(range(len(train_data.src_node_ids))), batch_size=args.batch_size, shuffle=False)
@@ -164,7 +164,7 @@ if __name__ == "__main__":
                     train_data.src_node_ids[train_data_indices], train_data.dst_node_ids[train_data_indices], \
                     train_data.node_interact_times[train_data_indices], train_data.edge_ids[train_data_indices]
 
-                _, batch_neg_dst_node_ids = train_neg_edge_sampler.sample(size=len(batch_src_node_ids))
+                batch_neg_dst_node_ids = train_neg_edge_sampler.sample(batch_src_node_ids)
                 batch_neg_src_node_ids = batch_src_node_ids
 
                 # we need to compute for positive and negative edges respectively, because the new sampling strategy (for evaluation) allows the negative source nodes to be
