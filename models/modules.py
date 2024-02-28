@@ -96,7 +96,7 @@ class LinkPredictorBaseline(nn.Module):
         self.fc2 = nn.Linear(hidden_dim, output_dim)
         self.act = nn.ReLU()
 
-    def forward(self, input_1: torch.Tensor, input_2: torch.Tensor, times):
+    def forward(self, input_1: torch.Tensor, input_2: torch.Tensor):
         """
         merge and project the inputs
         :param input_1: Tensor, shape (*, input_dim1)
@@ -120,15 +120,18 @@ class LinkPredictor(nn.Module):
     def out(self, input):
         return input
 
-    def forward(self, input_1, input_2, times):
+    def forward(self, input_1, input_2, input_3, times):
         src = torch.cat([input_1, input_1], dim=1)
         dst = torch.cat([input_2, input_2], dim=1)
+        neg = torch.cat([input_3, input_3], dim=1)
         p = self.prompts + self.time_encoder(torch.from_numpy(times).unsqueeze(1).float().to(src.device)).squeeze(1) * self.lamb
         src = self.out(src) * p
         dst = self.out(dst) * p
-        logits = F.cosine_similarity(src, dst, dim=1)
-        return logits
-
+        neg = self.out(neg) * p
+        sim = torch.cat([F.cosine_similarity(src, dst, dim=1), F.cosine_similarity(src, neg, dim=1)], dim=0)
+        # loss = - F.log_softmax(sim/1, dim=0)[0].mean()
+        loss = torch.clamp(1 - (sim[0] - sim[1]), min=0).mean()
+        return loss
 
 class EdgeClassifierBaseline(nn.Module):
     def __init__(self, input_dim: int, dropout: float = 0.1):

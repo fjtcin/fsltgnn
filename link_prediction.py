@@ -138,7 +138,7 @@ if __name__ == "__main__":
                 model[0].memory_bank.__init_memory_bank__()
 
             # store train losses, trues and predicts
-            train_total_loss, train_y_trues, train_y_predicts = 0.0, [], []
+            train_total_loss = 0.0
             train_idx_data_loader_tqdm = tqdm(train_idx_data_loader, ncols=120)
             for batch_idx, train_data_indices in enumerate(train_idx_data_loader_tqdm):
                 train_data_indices = train_data_indices.numpy()
@@ -224,20 +224,18 @@ if __name__ == "__main__":
                 else:
                     raise ValueError(f"Wrong value for model_name {args.model_name}!")
                 # get positive and negative probabilities, shape (batch_size, )
-                positive_probabilities = model[1](input_1=batch_src_node_embeddings, input_2=batch_dst_node_embeddings, times=batch_node_interact_times)
-                positive_probabilities = positive_probabilities.sigmoid()
-                negative_probabilities = model[1](input_1=batch_neg_src_node_embeddings, input_2=batch_neg_dst_node_embeddings, times=batch_node_interact_times)
-                negative_probabilities = negative_probabilities.sigmoid()
-
-                predicts = torch.cat([positive_probabilities, negative_probabilities], dim=0)
-                labels = torch.cat([torch.ones_like(positive_probabilities), torch.zeros_like(negative_probabilities)], dim=0)
-
-                loss = loss_func(input=predicts, target=labels)
+                if args.no_pre:
+                    positive_probabilities = model[1](input_1=batch_src_node_embeddings, input_2=batch_dst_node_embeddings)
+                    positive_probabilities = positive_probabilities.sigmoid()
+                    negative_probabilities = model[1](input_1=batch_neg_src_node_embeddings, input_2=batch_neg_dst_node_embeddings)
+                    negative_probabilities = negative_probabilities.sigmoid()
+                    predicts = torch.cat([positive_probabilities, negative_probabilities], dim=0)
+                    labels = torch.cat([torch.ones_like(positive_probabilities), torch.zeros_like(negative_probabilities)], dim=0)
+                    loss = loss_func(input=predicts, target=labels)
+                else:
+                    loss = model[1](input_1=batch_src_node_embeddings, input_2=batch_dst_node_embeddings, input_3=batch_neg_dst_node_embeddings, times=batch_node_interact_times)
 
                 train_total_loss += loss.item()
-
-                train_y_trues.append(labels)
-                train_y_predicts.append(predicts)
 
                 optimizer.zero_grad()
                 loss.backward()
@@ -250,20 +248,9 @@ if __name__ == "__main__":
                     model[0].memory_bank.detach_memory_bank()
 
             train_total_loss /= (batch_idx + 1)
-            train_y_trues = torch.cat(train_y_trues, dim=0)
-            train_y_predicts = torch.cat(train_y_predicts, dim=0)
-
-            train_metrics = get_link_prediction_metrics(predicts=train_y_predicts, labels=train_y_trues)
-
             logger.info(f'Epoch: {epoch + 1}, learning rate: {optimizer.param_groups[0]["lr"]}, train loss: {train_total_loss:.4f}')
-            for metric_name in train_metrics.keys():
-                logger.info(f'train {metric_name}, {train_metrics[metric_name]:.4f}')
 
-            # select the best model based on all the validate metrics
-            train_metric_indicator = []
-            for metric_name in train_metrics.keys():
-                train_metric_indicator.append((metric_name, train_metrics[metric_name], True))
-            early_stop = early_stopping.step(train_metric_indicator, model)
+            early_stop = early_stopping.step([("loss", train_total_loss, False)], model)
 
             if early_stop:
                 break
