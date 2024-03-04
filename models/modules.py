@@ -129,8 +129,8 @@ class LinkPredictor(nn.Module):
         dst = self.out(dst) * p
         neg = self.out(neg) * p
         sim = torch.cat([F.cosine_similarity(src, dst, dim=1), F.cosine_similarity(src, neg, dim=1)], dim=0)
-        # loss = - F.log_softmax(sim/1, dim=0)[0].mean()
-        loss = torch.clamp(1 - (sim[0] - sim[1]), min=0).mean()
+        loss = - F.log_softmax(sim*1, dim=0)[0].mean()
+        # loss = torch.clamp(1 - (sim[0] - sim[1]), min=0).mean()
         return loss
 
 class EdgeClassifierBaseline(nn.Module):
