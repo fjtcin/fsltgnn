@@ -107,7 +107,7 @@ class LinkPredictorBaseline(nn.Module):
         x = torch.cat([input_1, input_2], dim=1)
         # Tensor, shape (*, output_dim)
         h = self.fc2(self.act(self.fc1(x)))
-        return h.sigmoid()
+        return h
 
 
 class LinkPredictor(nn.Module):
