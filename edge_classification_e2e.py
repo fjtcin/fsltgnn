@@ -53,7 +53,7 @@ if __name__ == "__main__":
 
         if args.num_runs > 1: args.seed = run
         set_random_seed(args.seed)
-        args.save_model_name = f'edge_classification_e2e_{args.classifier}'
+        args.save_model_name = f'edge_classification_e2e'
 
         # set up logger
         logging.basicConfig(level=logging.INFO)
@@ -116,13 +116,8 @@ if __name__ == "__main__":
                                          max_input_sequence_length=args.max_input_sequence_length, device=args.device)
         else:
             raise ValueError(f"Wrong value for model_name {args.model_name}!")
-        match args.classifier:
-            case 'mean':
-                edge_classifier = EdgeClassifier(args, train_data, train_idx_data_loader, prompt_dim=2*node_raw_features.shape[1])
-            case 'learnable':
-                edge_classifier = EdgeClassifierLearnable(num_classes=train_data.labels.max().item() + 1, prompt_dim=2*node_raw_features.shape[1])
-            case 'baseline':
-                edge_classifier = EdgeClassifierBaseline(input_dim=2*node_raw_features.shape[1], dropout=args.dropout)
+
+        edge_classifier = EdgeClassifierBaseline(input_dim=2*node_raw_features.shape[1], dropout=args.dropout)
         model = nn.Sequential(dynamic_backbone, edge_classifier)
         logger.info(f'model -> {model}')
         logger.info(f'model name: {args.model_name}, #parameters: {get_parameter_sizes(model) * 4} B, '
@@ -193,12 +188,8 @@ if __name__ == "__main__":
                 else:
                     raise ValueError(f"Wrong value for model_name {args.model_name}!")
                 # get predicted probabilities, shape (batch_size, )
-                if args.classifier == 'mean':
-                    predicts, labels, cnt_mean = model[1](input_1=batch_src_node_embeddings, input_2=batch_dst_node_embeddings, times=batch_node_interact_times, labels=batch_labels, ratio=args.ratio)
-                    labels = labels.float()
-                else:
-                    predicts = model[1](input_1=batch_src_node_embeddings, input_2=batch_dst_node_embeddings, times=batch_node_interact_times)
-                    labels = torch.from_numpy(batch_labels).float().to(predicts.device)
+                predicts = model[1](input_1=batch_src_node_embeddings, input_2=batch_dst_node_embeddings)
+                labels = torch.from_numpy(batch_labels).float().to(predicts.device)
                 predicts = predicts.sigmoid()
 
                 loss = loss_func(input=predicts, target=labels)
@@ -212,10 +203,7 @@ if __name__ == "__main__":
                 loss.backward()
                 optimizer.step()
 
-                if args.classifier == 'mean':
-                    train_idx_data_loader_tqdm.set_description(f'Epoch: {epoch + 1}, train for the {batch_idx + 1}-th batch, train loss: {loss.item():.4f}, cnt_min: {cnt_mean}')
-                else:
-                    train_idx_data_loader_tqdm.set_description(f'Epoch: {epoch + 1}, train for the {batch_idx + 1}-th batch, train loss: {loss.item()}')
+                train_idx_data_loader_tqdm.set_description(f'Epoch: {epoch + 1}, train for the {batch_idx + 1}-th batch, train loss: {loss.item()}')
 
                 if args.model_name in ['JODIE', 'DyRep', 'TGN']:
                     # detach the memories and raw messages of nodes in the memory bank after each batch, so we don't back propagate to the start of time
