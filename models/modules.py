@@ -197,7 +197,7 @@ class EdgeClassifier(nn.Module):
             dst = self.prototypical_edges
             x = torch.hstack((src.repeat_interleave(dst.size(0), dim=0), dst.repeat(src.size(0), 1)))
             res = self.mlp(x).reshape(src.size(0), dst.size(0))
-            return res[:, 1] - res[:, 0]
+            return res
         else:
             labels = torch.from_numpy(labels).to(self.args.device)
             delimiter = int(features.size(0) * ratio)
@@ -212,7 +212,7 @@ class EdgeClassifier(nn.Module):
             cnt_min = torch.sum(mask, dim=1).min()
             assert cnt_min, "There is no control node for some class, please increase batch_size and/or ratio"
             res = self.mlp(x).reshape(src.size(0), dst.size(0))
-            return res[:, 1] - res[:, 0], experimental_labels, cnt_min
+            return res, experimental_labels, cnt_min
 
     def prototypical_encoding(self, model):
         self.prototypical_edges = torch.zeros(self.num_classes, self.prompts.shape[1], device=self.args.device)
@@ -296,7 +296,7 @@ class EdgeClassifierLearnable(nn.Module):
         dst = F.normalize(self.prototypical_edges)
         x = torch.hstack((src.repeat_interleave(dst.size(0), dim=0), dst.repeat(src.size(0), 1)))
         res = self.mlp(x).reshape(src.size(0), dst.size(0))
-        return res[:, 1] - res[:, 0]
+        return res
 
     def prototypical_encoding(self, model):
         pass

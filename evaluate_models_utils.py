@@ -123,11 +123,10 @@ def evaluate_model_link_prediction(model_name: str, model: nn.Module, neighbor_s
                 raise ValueError(f"Wrong value for model_name {model_name}!")
             # get positive and negative probabilities, shape (batch_size, )
             positive_probabilities = model[1](input_1=batch_src_node_embeddings, input_2=batch_dst_node_embeddings, times=batch_node_interact_times)
-            positive_probabilities = positive_probabilities.sigmoid()
             negative_probabilities = model[1](input_1=batch_neg_src_node_embeddings, input_2=batch_neg_dst_node_embeddings, times=batch_node_interact_times)
-            negative_probabilities = negative_probabilities.sigmoid()
 
-            predicts = torch.cat([positive_probabilities, negative_probabilities], dim=0)
+            predicts = torch.vstack([positive_probabilities, negative_probabilities]).softmax(dim=0).flatten()
+
             labels = torch.cat([torch.ones_like(positive_probabilities), torch.zeros_like(negative_probabilities)], dim=0)
 
             loss = loss_func(input=predicts, target=labels)
@@ -217,8 +216,12 @@ def evaluate_model_edge_classification(model_name: str, model: nn.Module, neighb
                 raise ValueError(f"Wrong value for model_name {model_name}!")
             # get predicted probabilities, shape (batch_size, )
             predicts = model[1](input_1=batch_src_node_embeddings, input_2=batch_dst_node_embeddings, times=batch_node_interact_times)
-            predicts = predicts.sigmoid()
             labels = torch.from_numpy(batch_labels).float().to(predicts.device)
+
+            if predicts.dim() == 1:
+                predicts = predicts.sigmoid()
+            else:
+                predicts = predicts.softmax(dim=1)[:, 1]
 
             loss = loss_func(input=predicts, target=labels)
 

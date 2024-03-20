@@ -226,7 +226,11 @@ if __name__ == "__main__":
                 else:
                     predicts = model[1](input_1=batch_src_node_embeddings, input_2=batch_src_node_embeddings, times=batch_node_interact_times)
                     labels = torch.from_numpy(batch_labels).float().to(predicts.device)
-                predicts = predicts.sigmoid()
+
+                if args.classifier == 'baseline':
+                    predicts = predicts.sigmoid()
+                else:
+                    predicts = predicts.softmax(dim=1)[:, 1]
 
                 loss = loss_func(input=predicts, target=labels)
 
