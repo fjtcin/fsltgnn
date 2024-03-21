@@ -188,31 +188,15 @@ class EdgeClassifier(nn.Module):
     def out(self, input):
         return input
 
-    def forward(self, input_1: torch.Tensor, input_2: torch.Tensor, times: np.ndarray, labels=None, ratio=0):
+    def forward(self, input_1: torch.Tensor, input_2: torch.Tensor, times: np.ndarray):
         features = torch.cat([input_1, input_2], dim=1)
         p = self.prompts + self.time_encoder(torch.from_numpy(times).unsqueeze(1).float().to(self.args.device)).squeeze(1) * self.lamb
         features = self.out(features) * p
-        if labels is None:
-            src = F.normalize(features)
-            dst = self.prototypical_edges
-            x = torch.hstack((src.repeat_interleave(dst.size(0), dim=0), dst.repeat(src.size(0), 1)))
-            res = self.mlp(x).reshape(src.size(0), dst.size(0))
-            return res
-        else:
-            labels = torch.from_numpy(labels).to(self.args.device)
-            delimiter = int(features.size(0) * ratio)
-            control, experimental = features[:delimiter], features[delimiter:]
-            control_labels, experimental_labels = labels[:delimiter], labels[delimiter:]
-            mask = torch.zeros(self.num_classes, delimiter, device=features.device)
-            mask.scatter_(0, control_labels.unsqueeze(0), 1)
-            features_sum = mask @ control
-            src = F.normalize(experimental)
-            dst = F.normalize(features_sum)
-            x = torch.hstack((src.repeat_interleave(dst.size(0), dim=0), dst.repeat(src.size(0), 1)))
-            cnt_min = torch.sum(mask, dim=1).min()
-            assert cnt_min, "There is no control node for some class, please increase batch_size and/or ratio"
-            res = self.mlp(x).reshape(src.size(0), dst.size(0))
-            return res, experimental_labels, cnt_min
+        src = F.normalize(features)
+        dst = self.prototypical_edges
+        x = torch.hstack((src.repeat_interleave(dst.size(0), dim=0), dst.repeat(src.size(0), 1)))
+        res = self.mlp(x).reshape(src.size(0), dst.size(0))
+        return res
 
     def prototypical_encoding(self, model):
         self.prototypical_edges = torch.zeros(self.num_classes, self.prompts.shape[1], device=self.args.device)

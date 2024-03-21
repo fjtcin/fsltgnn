@@ -177,6 +177,7 @@ if __name__ == "__main__":
             train_total_loss, train_y_trues, train_y_predicts = 0.0, [], []
             train_idx_data_loader_tqdm = tqdm(train_idx_data_loader, ncols=120)
             for batch_idx, train_data_indices in enumerate(train_idx_data_loader_tqdm):
+                model[1].prototypical_encoding(model[0])
                 train_data_indices = train_data_indices.numpy()
                 batch_src_node_ids, batch_dst_node_ids, batch_node_interact_times, batch_edge_ids, batch_labels = \
                     train_data.src_node_ids[train_data_indices], train_data.dst_node_ids[train_data_indices], train_data.node_interact_times[train_data_indices], \
@@ -220,12 +221,8 @@ if __name__ == "__main__":
                     else:
                         raise ValueError(f"Wrong value for model_name {args.model_name}!")
                 # get predicted probabilities, shape (batch_size, )
-                if args.classifier == 'mean':
-                    predicts, labels, cnt_mean = model[1](input_1=batch_src_node_embeddings, input_2=batch_dst_node_embeddings, times=batch_node_interact_times, labels=batch_labels, ratio=args.ratio)
-                    labels = labels.float()
-                else:
-                    predicts = model[1](input_1=batch_src_node_embeddings, input_2=batch_dst_node_embeddings, times=batch_node_interact_times)
-                    labels = torch.from_numpy(batch_labels).float().to(predicts.device)
+                predicts = model[1](input_1=batch_src_node_embeddings, input_2=batch_dst_node_embeddings, times=batch_node_interact_times)
+                labels = torch.from_numpy(batch_labels).float().to(predicts.device)
 
                 if args.classifier == 'baseline':
                     predicts = predicts.sigmoid()
@@ -243,10 +240,7 @@ if __name__ == "__main__":
                 loss.backward()
                 optimizer.step()
 
-                if args.classifier == 'mean':
-                    train_idx_data_loader_tqdm.set_description(f'Epoch: {epoch + 1}, train for the {batch_idx + 1}-th batch, train loss: {loss.item():.4f}, cnt_min: {cnt_mean}')
-                else:
-                    train_idx_data_loader_tqdm.set_description(f'Epoch: {epoch + 1}, train for the {batch_idx + 1}-th batch, train loss: {loss.item()}')
+                train_idx_data_loader_tqdm.set_description(f'Epoch: {epoch + 1}, train for the {batch_idx + 1}-th batch, train loss: {loss.item()}')
 
             train_total_loss /= (batch_idx + 1)
             train_y_trues = torch.cat(train_y_trues, dim=0)
