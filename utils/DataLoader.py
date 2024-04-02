@@ -92,9 +92,8 @@ def get_link_prediction_data(dataset_name: str, full_ratio: float):
     dst_node_ids = graph_df.i.values
     node_interact_times = graph_df.ts.values
     edge_ids = graph_df.idx.values
-    labels = graph_df.label.values
 
-    train_data = Data(src_node_ids=src_node_ids, dst_node_ids=dst_node_ids, node_interact_times=node_interact_times, edge_ids=edge_ids, labels=labels)
+    train_data = Data(src_node_ids=src_node_ids, dst_node_ids=dst_node_ids, node_interact_times=node_interact_times, edge_ids=edge_ids, labels=None)
 
     print("The training dataset has {} interactions, involving {} different nodes".format(
         train_data.num_interactions, train_data.num_unique_nodes))
