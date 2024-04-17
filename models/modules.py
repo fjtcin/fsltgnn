@@ -151,7 +151,7 @@ class EdgeClassifierBaseline(nn.Module):
         super().__init__()
         self.fc1 = nn.Linear(input_dim, 80)
         self.fc2 = nn.Linear(80, 10)
-        self.fc3 = nn.Linear(10, 1)
+        self.fc3 = nn.Linear(10, 1)  # TODO: output_dim for node classification
         self.act = nn.ReLU()
         self.dropout = nn.Dropout(dropout)
 

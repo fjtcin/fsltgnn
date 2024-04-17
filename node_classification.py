@@ -16,28 +16,28 @@ from models.CAWN import CAWN
 from models.TCL import TCL
 from models.GraphMixer import GraphMixer
 from models.DyGFormer import DyGFormer
-from models.modules import LinkPredictorBaseline, LinkPredictor, EdgeClassifier, EdgeClassifierBaseline, EdgeClassifierLearnable
+from models.modules import LinkPredictor, EdgeClassifier, EdgeClassifierBaseline, EdgeClassifierLearnable
 from utils.utils import set_random_seed, convert_to_gpu, get_parameter_sizes, create_optimizer
 from utils.utils import get_neighbor_sampler
-from evaluate_models_utils import evaluate_model_edge_classification
-from utils.metrics import get_edge_classification_metrics
-from utils.DataLoader import get_idx_data_loader, get_edge_classification_data
+from evaluate_models_utils import evaluate_model_node_classification
+from utils.metrics import get_node_classification_metrics
+from utils.DataLoader import get_idx_data_loader, get_node_classification_data
 from utils.EarlyStopping import EarlyStopping
-from utils.load_configs import get_edge_classification_args
+from utils.load_configs import get_node_classification_args
 
 if __name__ == "__main__":
 
     warnings.filterwarnings('ignore')
 
     # get arguments
-    args = get_edge_classification_args()
+    args = get_node_classification_args()
 
     # get data for training, validation and testing
-    node_raw_features, edge_raw_features, full_data, train_data, val_data, test_data, new_node_val_data, new_node_test_data = \
-        get_edge_classification_data(dataset_name=args.dataset_name, full_ratio=args.full_ratio, val_ratio=args.val_ratio, test_ratio=args.test_ratio)
+    node_raw_features, edge_raw_features, sampler_data, train_data, val_data, test_data, new_node_val_data, new_node_test_data = \
+        get_node_classification_data(dataset_name=args.dataset_name, full_ratio=args.full_ratio, val_ratio=args.val_ratio, test_ratio=args.test_ratio)
 
     # initialize validation and test neighbor sampler to retrieve temporal graph
-    full_neighbor_sampler = get_neighbor_sampler(data=full_data, sample_neighbor_strategy=args.sample_neighbor_strategy,
+    full_neighbor_sampler = get_neighbor_sampler(data=sampler_data, sample_neighbor_strategy=args.sample_neighbor_strategy,
                                                  time_scaling_factor=args.time_scaling_factor, seed=1)
 
     # get data loaders
@@ -53,8 +53,8 @@ if __name__ == "__main__":
 
         if args.num_runs > 1: args.seed = run
         set_random_seed(args.seed)
-        args.load_model_name = 'link_prediction' + ('_baseline' if args.no_pre else '')
-        args.save_model_name = f'node_classification_{args.classifier}' + (f'--no_pre' if args.no_pre else '')
+        args.load_model_name = 'link_prediction'
+        args.save_model_name = f'node_classification_{args.classifier}'
 
         # set up logger
         logging.basicConfig(level=logging.INFO)
@@ -117,8 +117,7 @@ if __name__ == "__main__":
                                          max_input_sequence_length=args.max_input_sequence_length, device=args.device)
         else:
             raise ValueError(f"Wrong value for model_name {args.model_name}!")
-        link_predictor = LinkPredictorBaseline(input_dim=2*node_raw_features.shape[1], hidden_dim=node_raw_features.shape[1], output_dim=1) \
-            if args.no_pre else LinkPredictor(prompt_dim=2*node_raw_features.shape[1])
+        link_predictor = LinkPredictor(prompt_dim=2*node_raw_features.shape[1])
         model = nn.Sequential(dynamic_backbone, link_predictor)
 
         # load the saved model in the link prediction task
@@ -137,7 +136,7 @@ if __name__ == "__main__":
             case 'learnable':
                 edge_classifier = EdgeClassifierLearnable(num_classes=train_data.labels.max().item() + 1, prompt_dim=2*node_raw_features.shape[1], mlp=model[1].mlp)
             case 'baseline':
-                edge_classifier = EdgeClassifierBaseline(input_dim=2*node_raw_features.shape[1], dropout=args.dropout)
+                edge_classifier = EdgeClassifierBaseline(input_dim=2*node_raw_features.shape[1], output_dim = train_data.labels.max().item() + 1, dropout=args.dropout)
         model = nn.Sequential(model[0], edge_classifier)
         logger.info(f'model -> {model}')
         logger.info(f'model name: {args.model_name}, #parameters: {get_parameter_sizes(model) * 4} B, '
@@ -158,7 +157,7 @@ if __name__ == "__main__":
         early_stopping = EarlyStopping(patience=args.patience, save_model_folder=save_model_folder,
                                        save_model_name=args.save_model_name, logger=logger, model_name=args.model_name)
 
-        loss_func = nn.BCELoss()
+        loss_func = nn.CrossEntropyLoss()
 
         # set the dynamic_backbone in evaluation mode
         model[0].eval()
@@ -221,13 +220,8 @@ if __name__ == "__main__":
                     else:
                         raise ValueError(f"Wrong value for model_name {args.model_name}!")
                 # get predicted probabilities, shape (batch_size, )
-                predicts = model[1](input_1=batch_src_node_embeddings, input_2=batch_src_node_embeddings, times=batch_node_interact_times)
-                labels = torch.from_numpy(batch_labels).float().to(predicts.device)
-
-                if args.classifier == 'baseline':
-                    predicts = predicts.sigmoid()
-                else:
-                    predicts = predicts.softmax(dim=1)[:, 1]
+                predicts = model[1](input_1=batch_src_node_embeddings, input_2=batch_dst_node_embeddings, times=batch_node_interact_times)
+                labels = torch.from_numpy(batch_labels).to(predicts.device)
 
                 loss = loss_func(input=predicts, target=labels)
 
@@ -246,13 +240,13 @@ if __name__ == "__main__":
             train_y_trues = torch.cat(train_y_trues, dim=0)
             train_y_predicts = torch.cat(train_y_predicts, dim=0)
 
-            train_metrics = get_edge_classification_metrics(predicts=train_y_predicts, labels=train_y_trues)
+            train_metrics = get_node_classification_metrics(predicts=train_y_predicts, labels=train_y_trues)
 
             if args.model_name in ['JODIE', 'DyRep', 'TGN']:
                 # backup memory bank after training so it can be used for new validation nodes
                 train_backup_memory_bank = model[0].memory_bank.backup_memory_bank()
 
-            val_total_loss, val_metrics = evaluate_model_edge_classification(model_name=args.model_name,
+            val_total_loss, val_metrics = evaluate_model_node_classification(model_name=args.model_name,
                                                                              model=model,
                                                                              neighbor_sampler=full_neighbor_sampler,
                                                                              evaluate_idx_data_loader=val_idx_data_loader,
@@ -268,7 +262,7 @@ if __name__ == "__main__":
                 # reload training memory bank for new validation nodes
                 model[0].memory_bank.reload_memory_bank(train_backup_memory_bank)
 
-            new_node_val_total_loss, new_node_val_metrics = evaluate_model_edge_classification(model_name=args.model_name,
+            new_node_val_total_loss, new_node_val_metrics = evaluate_model_node_classification(model_name=args.model_name,
                                                                                        model=model,
                                                                                        neighbor_sampler=full_neighbor_sampler,
                                                                                        evaluate_idx_data_loader=new_node_val_idx_data_loader,
@@ -294,7 +288,7 @@ if __name__ == "__main__":
 
             # perform testing once after test_interval_epochs
             if (epoch + 1) % args.test_interval_epochs == 0:
-                test_total_loss, test_metrics = evaluate_model_edge_classification(model_name=args.model_name,
+                test_total_loss, test_metrics = evaluate_model_node_classification(model_name=args.model_name,
                                                                                    model=model,
                                                                                    neighbor_sampler=full_neighbor_sampler,
                                                                                    evaluate_idx_data_loader=test_idx_data_loader,
@@ -307,7 +301,7 @@ if __name__ == "__main__":
                     # reload validation memory bank for new testing nodes
                     model[0].memory_bank.reload_memory_bank(val_backup_memory_bank)
 
-                new_node_test_total_loss, new_node_test_metrics = evaluate_model_edge_classification(model_name=args.model_name,
+                new_node_test_total_loss, new_node_test_metrics = evaluate_model_node_classification(model_name=args.model_name,
                                                                                              model=model,
                                                                                              neighbor_sampler=full_neighbor_sampler,
                                                                                              evaluate_idx_data_loader=new_node_test_idx_data_loader,
@@ -345,7 +339,7 @@ if __name__ == "__main__":
 
         # the saved best model of memory-based models cannot perform validation since the stored memory has been updated by validation data
         if args.model_name not in ['JODIE', 'DyRep', 'TGN']:
-            val_total_loss, val_metrics = evaluate_model_edge_classification(model_name=args.model_name,
+            val_total_loss, val_metrics = evaluate_model_node_classification(model_name=args.model_name,
                                                                              model=model,
                                                                              neighbor_sampler=full_neighbor_sampler,
                                                                              evaluate_idx_data_loader=val_idx_data_loader,
@@ -355,7 +349,7 @@ if __name__ == "__main__":
                                                                              time_gap=args.time_gap,
                                                                              fp=f'{save_result_folder}/val_best.json')
 
-            new_node_val_total_loss, new_node_val_metrics = evaluate_model_edge_classification(model_name=args.model_name,
+            new_node_val_total_loss, new_node_val_metrics = evaluate_model_node_classification(model_name=args.model_name,
                                                                                        model=model,
                                                                                        neighbor_sampler=full_neighbor_sampler,
                                                                                        evaluate_idx_data_loader=new_node_val_idx_data_loader,
@@ -369,7 +363,7 @@ if __name__ == "__main__":
             # the memory in the best model has seen the validation edges, we need to backup the memory for new testing nodes
             val_backup_memory_bank = model[0].memory_bank.backup_memory_bank()
 
-        test_total_loss, test_metrics = evaluate_model_edge_classification(model_name=args.model_name,
+        test_total_loss, test_metrics = evaluate_model_node_classification(model_name=args.model_name,
                                                                            model=model,
                                                                            neighbor_sampler=full_neighbor_sampler,
                                                                            evaluate_idx_data_loader=test_idx_data_loader,
@@ -383,7 +377,7 @@ if __name__ == "__main__":
             # reload validation memory bank for new testing nodes
             model[0].memory_bank.reload_memory_bank(val_backup_memory_bank)
 
-        new_node_test_total_loss, new_node_test_metrics = evaluate_model_edge_classification(model_name=args.model_name,
+        new_node_test_total_loss, new_node_test_metrics = evaluate_model_node_classification(model_name=args.model_name,
                                                                                      model=model,
                                                                                      neighbor_sampler=full_neighbor_sampler,
                                                                                      evaluate_idx_data_loader=new_node_test_idx_data_loader,

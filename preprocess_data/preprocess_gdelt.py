@@ -24,6 +24,10 @@ def preprocess_data():
     edge_feats = edge_feats[select]
 
     df2 = pd.read_csv(LABEL_PATH, usecols=['node', 'time', 'label'])
+    select = np.arange(0, len(df2), 100)
+    df2 = df2.iloc[select]
+    df2 = df2.reset_index(drop=True)
+
     valid_nodes = df2["node"].unique()
     mask = (df["src"].isin(valid_nodes)) & (df["dst"].isin(valid_nodes))
     df = df[mask]
