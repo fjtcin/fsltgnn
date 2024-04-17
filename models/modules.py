@@ -191,8 +191,7 @@ class EdgeClassifier(nn.Module):
     def forward(self, input_1: torch.Tensor, input_2: torch.Tensor, times: np.ndarray):
         features = torch.cat([input_1, input_2], dim=1)
         p = self.prompts + self.time_encoder(torch.from_numpy(times).unsqueeze(1).float().to(self.args.device)).squeeze(1) * self.lamb
-        features = self.out(features) * p
-        src = F.normalize(features)
+        src = F.normalize(self.out(features) * p)
         dst = self.prototypical_edges
         x = torch.hstack((src.repeat_interleave(dst.size(0), dim=0), dst.repeat(src.size(0), 1)))
         res = self.mlp(x).reshape(src.size(0), dst.size(0))
@@ -247,7 +246,7 @@ class EdgeClassifier(nn.Module):
 
             batch_edge_embeddings = torch.hstack((batch_src_node_embeddings, batch_dst_node_embeddings))
             p = self.prompts + self.time_encoder(torch.from_numpy(batch_node_interact_times).unsqueeze(1).float().to(self.args.device)).squeeze(1) * self.lamb
-            batch_edge_embeddings = self.out(batch_edge_embeddings) * p
+            batch_edge_embeddings = F.normalize(self.out(batch_edge_embeddings) * p)
 
             batch_labels = torch.from_numpy(batch_labels).to(self.args.device)
             mask = torch.zeros(self.num_classes, batch_labels.size(0), device=self.args.device)
@@ -275,8 +274,7 @@ class EdgeClassifierLearnable(nn.Module):
     def forward(self, input_1: torch.Tensor, input_2: torch.Tensor, times: np.ndarray):
         features = torch.cat([input_1, input_2], dim=1)
         p = self.prompts + self.time_encoder(torch.from_numpy(times).unsqueeze(1).float().to(features.device)).squeeze(1) * self.lamb
-        features = self.out(features) * p
-        src = F.normalize(features)
+        src = F.normalize(self.out(features) * p)
         dst = F.normalize(self.prototypical_edges)
         x = torch.hstack((src.repeat_interleave(dst.size(0), dim=0), dst.repeat(src.size(0), 1)))
         res = self.mlp(x).reshape(src.size(0), dst.size(0))
