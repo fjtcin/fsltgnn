@@ -3,10 +3,8 @@ import time
 import sys
 import os
 from tqdm import tqdm
-import numpy as np
 import warnings
 import shutil
-import json
 import torch
 import torch.nn as nn
 
@@ -16,10 +14,9 @@ from models.CAWN import CAWN
 from models.TCL import TCL
 from models.GraphMixer import GraphMixer
 from models.DyGFormer import DyGFormer
-from models.modules import LinkPredictor, LinkPredictorBaseline
+from models.modules import BinaryLoss, LinkPredictor, LinkPredictorBaseline
 from utils.utils import set_random_seed, convert_to_gpu, get_parameter_sizes, create_optimizer
 from utils.utils import get_neighbor_sampler, NegativeEdgeSampler
-from evaluate_models_utils import evaluate_model_link_prediction
 from utils.metrics import get_link_prediction_metrics
 from utils.DataLoader import get_idx_data_loader, get_link_prediction_data
 from utils.EarlyStopping import EarlyStopping
@@ -111,8 +108,7 @@ if __name__ == "__main__":
                                          max_input_sequence_length=args.max_input_sequence_length, device=args.device)
         else:
             raise ValueError(f"Wrong value for model_name {args.model_name}!")
-        link_predictor = LinkPredictorBaseline(input_dim=2*node_raw_features.shape[1], hidden_dim=node_raw_features.shape[1], output_dim=1) \
-            if args.no_pre else LinkPredictor(prompt_dim=2*node_raw_features.shape[1])
+        link_predictor = LinkPredictorBaseline(input_dim=2*node_raw_features.shape[1]) if args.no_pre else LinkPredictor(prompt_dim=2*node_raw_features.shape[1])
         model = nn.Sequential(dynamic_backbone, link_predictor)
         logger.info(f'model -> {model}')
         logger.info(f'model name: {args.model_name}, #parameters: {get_parameter_sizes(model) * 4} B, '
@@ -125,7 +121,7 @@ if __name__ == "__main__":
         early_stopping = EarlyStopping(patience=args.patience, save_model_folder=save_model_folder,
                                        save_model_name=args.save_model_name, logger=logger, model_name=args.model_name)
 
-        loss_func = nn.BCELoss()
+        loss_func = BinaryLoss()
 
         for epoch in range(args.num_epochs):
 
@@ -141,7 +137,6 @@ if __name__ == "__main__":
             train_total_loss, train_y_trues, train_y_predicts = 0.0, [], []
             train_idx_data_loader_tqdm = tqdm(train_idx_data_loader, ncols=120)
             for batch_idx, train_data_indices in enumerate(train_idx_data_loader_tqdm):
-                train_data_indices = train_data_indices.numpy()
                 batch_src_node_ids, batch_dst_node_ids, batch_node_interact_times, batch_edge_ids = \
                     train_data.src_node_ids[train_data_indices], train_data.dst_node_ids[train_data_indices], \
                     train_data.node_interact_times[train_data_indices], train_data.edge_ids[train_data_indices]
@@ -226,8 +221,8 @@ if __name__ == "__main__":
                 # get positive and negative probabilities, shape (batch_size, )
                 positive_probabilities = model[1](input_1=batch_src_node_embeddings, input_2=batch_dst_node_embeddings, times=batch_node_interact_times)
                 negative_probabilities = model[1](input_1=batch_neg_src_node_embeddings, input_2=batch_neg_dst_node_embeddings, times=batch_node_interact_times)
-                predicts = torch.vstack([positive_probabilities, negative_probabilities]).softmax(dim=0).flatten()
-                labels = torch.cat([torch.ones_like(positive_probabilities), torch.zeros_like(negative_probabilities)], dim=0)
+                predicts = torch.cat([positive_probabilities, negative_probabilities], dim=0)
+                labels = torch.cat([torch.ones_like(positive_probabilities), torch.zeros_like(negative_probabilities)], dim=0).squeeze(1)
                 loss = loss_func(input=predicts, target=labels)
 
                 train_total_loss += loss.item()

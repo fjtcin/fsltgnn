@@ -4,6 +4,23 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 
+class BinaryLoss:
+    def __init__(self):
+        self.loss1 = nn.BCEWithLogitsLoss()
+        self.loss2 = nn.BCELoss()
+
+    def __call__(self, input, target):
+        assert input.dim() == 2, f"Wrong dimension {input.dim()} of input!"
+        if input.size(1) == 1:
+            input = input.squeeze(1)
+            return self.loss1(input, target)
+        elif input.size(1) == 2:
+            input = input.softmax(dim=1)[:, 1]
+            return self.loss2(input, target)
+        else:
+            raise ValueError(f"Wrong shape {input.shape} of input!")
+
+
 class TimeEncoder(nn.Module):
 
     def __init__(self, time_dim: int, parameter_requires_grad: bool = True):
@@ -83,17 +100,11 @@ class MergeLayer(nn.Module):
 
 
 class LinkPredictorBaseline(nn.Module):
-    def __init__(self, input_dim, hidden_dim: int, output_dim: int):
-        """
-        Merge Layer to merge two inputs via: input_dim1 + input_dim2 -> hidden_dim -> output_dim.
-        :param input_dim1: int, dimension of first input
-        :param input_dim2: int, dimension of the second input
-        :param hidden_dim: int, hidden dimension
-        :param output_dim: int, dimension of the output
-        """
+    def __init__(self, input_dim: int):
         super().__init__()
+        hidden_dim = input_dim // 2
         self.fc1 = nn.Linear(input_dim, hidden_dim)
-        self.fc2 = nn.Linear(hidden_dim, output_dim)
+        self.fc2 = nn.Linear(hidden_dim, 1)
         self.act = nn.ReLU()
 
     def forward(self, input_1: torch.Tensor, input_2: torch.Tensor, times=None):
@@ -136,7 +147,8 @@ class LinkPredictor(nn.Module):
         p = self.prompts + self.time_encoder(torch.from_numpy(times).unsqueeze(1).float().to(src.device)).squeeze(1) * self.lamb
         src = F.normalize(src * p)
         dst = F.normalize(dst * p)
-        return self.mlp(torch.hstack((src, dst))).squeeze(1)
+        return self.mlp(torch.hstack((src, dst)))
+
 
 class EdgeClassifierBaseline(nn.Module):
     def __init__(self, input_dim: int, dropout: float = 0.1):
@@ -164,7 +176,7 @@ class EdgeClassifierBaseline(nn.Module):
         # Tensor, shape (*, 10)
         x = self.dropout(self.act(self.fc2(x)))
         # Tensor, shape (*, 1)
-        return self.fc3(x).squeeze(dim=1)
+        return self.fc3(x)
 
     def prototypical_encoding(self, model):
         pass
