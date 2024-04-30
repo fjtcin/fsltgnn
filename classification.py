@@ -21,20 +21,20 @@ from utils.utils import set_random_seed, convert_to_gpu, get_parameter_sizes, cr
 from utils.utils import get_neighbor_sampler
 from evaluate_models_utils import evaluate_model_classification
 from utils.metrics import get_classification_metrics
-from utils.DataLoader import get_idx_data_loader, get_edge_classification_data
+from utils.DataLoader import get_idx_data_loader, get_classification_data
 from utils.EarlyStopping import EarlyStopping
-from utils.load_configs import get_edge_classification_args
+from utils.load_configs import get_classification_args
 
 if __name__ == "__main__":
 
     warnings.filterwarnings('ignore')
 
     # get arguments
-    args = get_edge_classification_args()
+    args = get_classification_args()
 
     # get data for training, validation and testing
     node_raw_features, edge_raw_features, full_data, train_data, val_data, test_data, new_node_val_data, new_node_test_data = \
-        get_edge_classification_data(dataset_name=args.dataset_name, full_ratio=args.full_ratio, val_ratio=args.val_ratio, test_ratio=args.test_ratio)
+        get_classification_data(dataset_name=args.dataset_name, full_ratio=args.full_ratio, val_ratio=args.val_ratio, test_ratio=args.test_ratio)
 
     # initialize validation and test neighbor sampler to retrieve temporal graph
     full_neighbor_sampler = get_neighbor_sampler(data=full_data, sample_neighbor_strategy=args.sample_neighbor_strategy,
@@ -54,7 +54,7 @@ if __name__ == "__main__":
         if args.num_runs > 1: args.seed = run
         set_random_seed(args.seed)
         args.load_model_name = 'link_prediction' + ('_baseline' if args.no_pre else '')
-        args.save_model_name = f'edge_classification_{args.classifier}' + (f'--no_pre' if args.no_pre else '')
+        args.save_model_name = f'classification_{args.classifier}' + (f'--no_pre' if args.no_pre else '')
 
         # set up logger
         logging.basicConfig(level=logging.INFO)
