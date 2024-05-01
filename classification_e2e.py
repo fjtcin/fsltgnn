@@ -118,7 +118,7 @@ if __name__ == "__main__":
             raise ValueError(f"Wrong value for model_name {args.model_name}!")
 
         num_classes = train_data.labels.max().item() + 1
-        edge_classifier = EdgeClassifierBaseline(input_dim=2*node_raw_features.shape[1], dropout=args.dropout)
+        edge_classifier = EdgeClassifierBaseline(input_dim=2*node_raw_features.shape[1], output_dim=num_classes if num_classes > 2 else 1, dropout=args.dropout)
         model = nn.Sequential(dynamic_backbone, edge_classifier)
         logger.info(f'model -> {model}')
         logger.info(f'model name: {args.model_name}, #parameters: {get_parameter_sizes(model) * 4} B, '

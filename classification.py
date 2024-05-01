@@ -137,7 +137,7 @@ if __name__ == "__main__":
             case 'learnable':
                 edge_classifier = EdgeClassifierLearnable(num_classes=num_classes, prompt_dim=2*node_raw_features.shape[1], mlp=model[1].mlp)
             case 'baseline':
-                edge_classifier = EdgeClassifierBaseline(input_dim=2*node_raw_features.shape[1], dropout=args.dropout)
+                edge_classifier = EdgeClassifierBaseline(input_dim=2*node_raw_features.shape[1], output_dim=num_classes if num_classes > 2 else 1, dropout=args.dropout)
         model = nn.Sequential(model[0], edge_classifier)
         logger.info(f'model -> {model}')
         logger.info(f'model name: {args.model_name}, #parameters: {get_parameter_sizes(model) * 4} B, '

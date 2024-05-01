@@ -102,9 +102,8 @@ class MergeLayer(nn.Module):
 class LinkPredictorBaseline(nn.Module):
     def __init__(self, input_dim: int):
         super().__init__()
-        hidden_dim = input_dim // 2
-        self.fc1 = nn.Linear(input_dim, hidden_dim)
-        self.fc2 = nn.Linear(hidden_dim, 1)
+        self.fc1 = nn.Linear(input_dim, input_dim // 2)
+        self.fc2 = nn.Linear(input_dim // 2, 1)
         self.act = nn.ReLU()
 
     def forward(self, input_1: torch.Tensor, input_2: torch.Tensor, times=None):
@@ -151,16 +150,16 @@ class LinkPredictor(nn.Module):
 
 
 class EdgeClassifierBaseline(nn.Module):
-    def __init__(self, input_dim: int, dropout: float = 0.1):
+    def __init__(self, input_dim: int, output_dim: int, dropout: float = 0.1):
         """
         Multi-Layer Perceptron Classifier.
         :param input_dim: int, dimension of input
         :param dropout: float, dropout rate
         """
         super().__init__()
-        self.fc1 = nn.Linear(input_dim, 80)
-        self.fc2 = nn.Linear(80, 10)
-        self.fc3 = nn.Linear(10, 1)  # TODO: output_dim for node classification
+        self.fc1 = nn.Linear(input_dim, input_dim // 2)
+        self.fc2 = nn.Linear(input_dim // 2, input_dim // 4)
+        self.fc3 = nn.Linear(input_dim // 4, output_dim)
         self.act = nn.ReLU()
         self.dropout = nn.Dropout(dropout)
 
@@ -171,11 +170,8 @@ class EdgeClassifierBaseline(nn.Module):
         :return:
         """
         x = torch.cat([input_1, input_2], dim=1)
-        # Tensor, shape (*, 80)
         x = self.dropout(self.act(self.fc1(x)))
-        # Tensor, shape (*, 10)
         x = self.dropout(self.act(self.fc2(x)))
-        # Tensor, shape (*, 1)
         return self.fc3(x)
 
     def prototypical_encoding(self, model):

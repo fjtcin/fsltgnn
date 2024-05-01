@@ -70,18 +70,16 @@ def get_link_prediction_data(dataset_name: str, full_ratio: float):
     edge_raw_features = np.load('./processed_data/{}/ml_{}.npy'.format(dataset_name, dataset_name))
     node_raw_features = np.load('./processed_data/{}/ml_{}_node.npy'.format(dataset_name, dataset_name))
 
-    # NODE_FEAT_DIM = EDGE_FEAT_DIM = 172
+    NODE_FEAT_DIM = EDGE_FEAT_DIM = 172
     # assert NODE_FEAT_DIM >= node_raw_features.shape[1], f'Node feature dimension in dataset {dataset_name} is bigger than {NODE_FEAT_DIM}!'
     # assert EDGE_FEAT_DIM >= edge_raw_features.shape[1], f'Edge feature dimension in dataset {dataset_name} is bigger than {EDGE_FEAT_DIM}!'
-    # # padding the features of edges and nodes to the same dimension (172 for all the datasets)
-    # if node_raw_features.shape[1] < NODE_FEAT_DIM:
-    #     node_zero_padding = np.zeros((node_raw_features.shape[0], NODE_FEAT_DIM - node_raw_features.shape[1]))
-    #     node_raw_features = np.concatenate([node_raw_features, node_zero_padding], axis=1)
-    # if edge_raw_features.shape[1] < EDGE_FEAT_DIM:
-    #     edge_zero_padding = np.zeros((edge_raw_features.shape[0], EDGE_FEAT_DIM - edge_raw_features.shape[1]))
-    #     edge_raw_features = np.concatenate([edge_raw_features, edge_zero_padding], axis=1)
-
-    # assert NODE_FEAT_DIM == node_raw_features.shape[1] and EDGE_FEAT_DIM == edge_raw_features.shape[1], 'Unaligned feature dimensions after feature padding!'
+    # padding the features of edges and nodes to the same dimension (172 for all the datasets)
+    if node_raw_features.shape[1] < NODE_FEAT_DIM:
+        node_zero_padding = np.zeros((node_raw_features.shape[0], NODE_FEAT_DIM - node_raw_features.shape[1]))
+        node_raw_features = np.concatenate([node_raw_features, node_zero_padding], axis=1)
+    if edge_raw_features.shape[1] < EDGE_FEAT_DIM:
+        edge_zero_padding = np.zeros((edge_raw_features.shape[0], EDGE_FEAT_DIM - edge_raw_features.shape[1]))
+        edge_raw_features = np.concatenate([edge_raw_features, edge_zero_padding], axis=1)
 
     # get the timestamp of validate and test set
     full_time = np.quantile(graph_df.ts, 1 - full_ratio)
@@ -128,6 +126,17 @@ def get_classification_data(dataset_name: str, full_ratio, val_ratio: float, tes
 
     edge_raw_features = np.load('./processed_data/{}/ml_{}.npy'.format(dataset_name, dataset_name))
     node_raw_features = np.load('./processed_data/{}/ml_{}_node.npy'.format(dataset_name, dataset_name))
+
+    NODE_FEAT_DIM = EDGE_FEAT_DIM = 172
+    # assert NODE_FEAT_DIM >= node_raw_features.shape[1], f'Node feature dimension in dataset {dataset_name} is bigger than {NODE_FEAT_DIM}!'
+    # assert EDGE_FEAT_DIM >= edge_raw_features.shape[1], f'Edge feature dimension in dataset {dataset_name} is bigger than {EDGE_FEAT_DIM}!'
+    # padding the features of edges and nodes to the same dimension (172 for all the datasets)
+    if node_raw_features.shape[1] < NODE_FEAT_DIM:
+        node_zero_padding = np.zeros((node_raw_features.shape[0], NODE_FEAT_DIM - node_raw_features.shape[1]))
+        node_raw_features = np.concatenate([node_raw_features, node_zero_padding], axis=1)
+    if edge_raw_features.shape[1] < EDGE_FEAT_DIM:
+        edge_zero_padding = np.zeros((edge_raw_features.shape[0], EDGE_FEAT_DIM - edge_raw_features.shape[1]))
+        edge_raw_features = np.concatenate([edge_raw_features, edge_zero_padding], axis=1)
 
     src_node_ids = graph_df.u.values
     dst_node_ids = graph_df.i.values
