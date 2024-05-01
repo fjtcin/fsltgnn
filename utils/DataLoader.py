@@ -83,8 +83,7 @@ def get_link_prediction_data(dataset_name: str, full_ratio: float):
 
     # get the timestamp of validate and test set
     full_time = np.quantile(graph_df.ts, 1 - full_ratio)
-    full_mask = graph_df.ts <= full_time
-    graph_df = graph_df[full_mask]
+    graph_df = graph_df[graph_df.ts <= full_time]
 
     src_node_ids = graph_df.u.values
     dst_node_ids = graph_df.i.values
@@ -115,15 +114,13 @@ def get_classification_data(dataset_name: str, full_ratio, val_ratio: float, tes
         graph_df = pd.read_csv('./processed_data/{}/ml_{}_node.csv'.format(dataset_name, dataset_name))
         original_graph_df = pd.read_csv('./processed_data/{}/ml_{}.csv'.format(dataset_name, dataset_name))
         full_time, val_time, test_time = list(np.quantile(original_graph_df.ts, [(1 - full_ratio), (1 - val_ratio - test_ratio), (1 - test_ratio)]))
-        graph_df = graph_df[graph_df.ts > full_time]
-        original_graph_df = original_graph_df[original_graph_df.ts > full_time]
         full_data = Data(src_node_ids=original_graph_df.u.values, dst_node_ids=original_graph_df.i.values, node_interact_times=original_graph_df.ts.values, edge_ids=original_graph_df.idx.values, labels=None)
     else:
         graph_df = pd.read_csv('./processed_data/{}/ml_{}.csv'.format(dataset_name, dataset_name))
         full_time, val_time, test_time = list(np.quantile(graph_df.ts, [(1 - full_ratio), (1 - val_ratio - test_ratio), (1 - test_ratio)]))
-        graph_df = graph_df[graph_df.ts > full_time]
         full_data = Data(src_node_ids=graph_df.u.values, dst_node_ids=graph_df.i.values, node_interact_times=graph_df.ts.values, edge_ids=graph_df.idx.values, labels=graph_df.label.values)
 
+    graph_df = graph_df[graph_df.ts > full_time]
     edge_raw_features = np.load('./processed_data/{}/ml_{}.npy'.format(dataset_name, dataset_name))
     node_raw_features = np.load('./processed_data/{}/ml_{}_node.npy'.format(dataset_name, dataset_name))
 

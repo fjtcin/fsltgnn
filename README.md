@@ -34,3 +34,11 @@ python link_prediction.py --dataset_name gdelt --model_name GraphMixer --load_be
 python classification.py --dataset_name gdelt --model_name GraphMixer --load_best_configs --seed 0
 python classification.py --classifier learnable --dataset_name gdelt --model_name GraphMixer --load_best_configs --seed 0
 ```
+
+baseline
+
+```bash
+python classification_e2e.py --dataset_name gdelt --model_name GraphMixer --load_best_configs --seed 0
+python classification.py --classifier baseline --dataset_name gdelt --model_name GraphMixer --load_best_configs --seed 0
+python classification.py --classifier baseline --no_pre --dataset_name gdelt --model_name GraphMixer --load_best_configs --seed 0
+```

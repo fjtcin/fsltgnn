@@ -30,6 +30,7 @@ def preprocess_data():
     df2 = df2.reset_index(drop=True)
 
     df2 = df2[df2['label'].isin(SELECTED_LABELS)]
+    df2 = df2.reset_index(drop=True)
 
     valid_nodes = df2["node"].unique()
     mask = (df["src"].isin(valid_nodes)) & (df["dst"].isin(valid_nodes))
