@@ -12,9 +12,16 @@ class BinaryLabelEncoder:
     def fit(self, x):
         pass
 
+    def custom_transform(self, x):
+        if x > 1:
+            return 2
+        elif x == 1:
+            return 1
+        else:
+            return 0
+
     def transform(self, x):
-        # return 1 if x is negative, 0 otherwise
-        return (x < 0).astype(int)
+        return x.apply(self.custom_transform)
 
 
 def preprocess_data(dataset_name, node_feat_dim, edge_feat_dim):

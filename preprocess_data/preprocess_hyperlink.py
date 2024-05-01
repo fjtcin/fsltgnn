@@ -2,7 +2,6 @@ import numpy as np
 import pandas as pd
 from pathlib import Path
 from sklearn.preprocessing import LabelEncoder
-# from sklearn.decomposition import PCA
 
 
 def preprocess_data():
@@ -26,7 +25,7 @@ def preprocess_data():
     df['TARGET_SUBREDDIT'] = le.transform(df['TARGET_SUBREDDIT']) + 1
 
     df['TIMESTAMP'] = pd.to_datetime(df['TIMESTAMP']).apply(lambda x: int(x.timestamp()))
-    df['LINK_SENTIMENT'].replace(-1, 0, inplace=True)
+    df['LINK_SENTIMENT'] = df['LINK_SENTIMENT'].replace(-1, 0)
 
     df.sort_values(by='TIMESTAMP', inplace=True)
 
@@ -56,8 +55,6 @@ def preprocess_data():
 
     df2_array = df2.values
     raw_feats = df2_array[:, 1:]
-    # pca = PCA(n_components=172)
-    # raw_feats = pca.fit_transform(raw_feats)
 
     node_feats = np.zeros((len(le.classes_) + 1, raw_feats.shape[1]))
     node_feats[df2_array[:, 0].astype(int), :] = raw_feats[:, :]

@@ -2,8 +2,7 @@ import numpy as np
 import pandas as pd
 from pathlib import Path
 import argparse
-from pandas.testing import assert_frame_equal
-from distutils.dir_util import copy_tree
+# from pandas.testing import assert_frame_equal
 
 
 def preprocess(dataset_name: str):
@@ -152,25 +151,10 @@ def check_data(dataset_name: str):
 
 
 parser = argparse.ArgumentParser('Interface for preprocessing datasets')
-parser.add_argument('--dataset_name', type=str, choices=['wikipedia', 'reddit', 'mooc', 'lastfm', 'enron', 'SocialEvo', 'uci',
-                                                         'Flights', 'CanParl', 'USLegis', 'UNtrade', 'UNvote', 'Contacts'],
-                    help='Dataset name', default='wikipedia')
+parser.add_argument('--dataset_name', type=str, choices=['wikipedia', 'reddit', 'mooc'], help='Dataset name', default='wikipedia')
 parser.add_argument('--node_feat_dim', type=int, default=172, help='Number of node raw features')
 
 args = parser.parse_args()
 
-print(f'preprocess dataset {args.dataset_name}...')
-if args.dataset_name in ['enron', 'SocialEvo', 'uci']:
-    Path("processed_data/{}/".format(args.dataset_name)).mkdir(parents=True, exist_ok=True)
-    copy_tree("DG_data/{}/".format(args.dataset_name), "processed_data/{}/".format(args.dataset_name))
-    print(f'the original dataset of {args.dataset_name} is unavailable, directly use the processed dataset by previous works.')
-else:
-    # bipartite dataset
-    if args.dataset_name in ['wikipedia', 'reddit', 'mooc', 'lastfm']:
-        preprocess_data(dataset_name=args.dataset_name, bipartite=True, node_feat_dim=args.node_feat_dim)
-    else:
-        preprocess_data(dataset_name=args.dataset_name, bipartite=False, node_feat_dim=args.node_feat_dim)
-    print(f'{args.dataset_name} is processed successfully.')
-
-    check_data(args.dataset_name)
-    print(f'{args.dataset_name} passes the checks successfully.')
+preprocess_data(dataset_name=args.dataset_name, bipartite=True, node_feat_dim=args.node_feat_dim)
+check_data(args.dataset_name)
