@@ -16,7 +16,7 @@ from models.CAWN import CAWN
 from models.TCL import TCL
 from models.GraphMixer import GraphMixer
 from models.DyGFormer import DyGFormer
-from models.modules import BinaryLoss, EdgeClassifierBaseline
+from models.modules import BinaryLoss, MLP
 from utils.utils import set_random_seed, convert_to_gpu, get_parameter_sizes, create_optimizer
 from utils.utils import get_neighbor_sampler
 from evaluate_models_utils import evaluate_model_classification
@@ -118,7 +118,7 @@ if __name__ == "__main__":
             raise ValueError(f"Wrong value for model_name {args.model_name}!")
 
         num_classes = train_data.labels.max().item() + 1
-        edge_classifier = EdgeClassifierBaseline(input_dim=2*node_raw_features.shape[1], output_dim=num_classes if num_classes > 2 else 1, dropout=args.dropout)
+        edge_classifier = MLP(input_dim=node_raw_features.shape[1], output_dim=num_classes if num_classes > 2 else 1, dropout=args.dropout)
         model = nn.Sequential(dynamic_backbone, edge_classifier)
         logger.info(f'model -> {model}')
         logger.info(f'model name: {args.model_name}, #parameters: {get_parameter_sizes(model) * 4} B, '

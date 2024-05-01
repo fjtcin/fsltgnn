@@ -46,6 +46,7 @@ def get_link_prediction_args():
     parser.add_argument('--num_runs', type=int, default=1, help='number of runs')
     parser.add_argument('--seed', type=int, default=0, help='invalid if num_runs > 1')
     parser.add_argument('--test_interval_epochs', type=int, default=10, help='how many epochs to perform testing once')
+    parser.add_argument('--lamb', type=float, default=0.1, help='time-encoding weight in prompt')
     parser.add_argument('--load_best_configs', action='store_true', default=False, help='whether to load the best configurations')
     parser.add_argument('--no_pre', action='store_true', default=False, help='use link prediction baseline as the pre-training task')
 
@@ -246,12 +247,13 @@ def get_classification_args():
     parser.add_argument('--weight_decay', type=float, default=0.0, help='weight decay')
     parser.add_argument('--patience', type=int, default=20, help='patience for early stopping')
     parser.add_argument('--full_ratio', type=float, default=0.3, help='ratio of downstream set')
-    parser.add_argument('--val_ratio', type=float, default=0.095, help='ratio of validation set')
+    parser.add_argument('--val_ratio', type=float, default=0.05, help='ratio of validation set')
     parser.add_argument('--test_ratio', type=float, default=0.2, help='ratio of test set')
     parser.add_argument('--num_runs', type=int, default=1, help='number of runs')
     parser.add_argument('--seed', type=int, default=0, help='invalid if num_runs > 1')
     parser.add_argument('--test_interval_epochs', type=int, default=10, help='how many epochs to perform testing once')
     parser.add_argument('--load_best_configs', action='store_true', default=False, help='whether to load the best configurations')
+    parser.add_argument('--lamb', type=float, default=0.1, help='time-encoding weight in prompt')
     parser.add_argument('--no_pre', action='store_true', default=False, help='use link prediction baseline as the pre-training task')
     parser.add_argument('--classifier', type=str, default='mean', choices=['mean', 'learnable', 'baseline'])
 

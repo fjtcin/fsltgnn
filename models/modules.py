@@ -99,46 +99,29 @@ class MergeLayer(nn.Module):
         return h
 
 
-class LinkPredictorBaseline(nn.Module):
-    def __init__(self, input_dim: int):
+class MLP(nn.Module):
+    def __init__(self, input_dim, output_dim, dropout):
         super().__init__()
-        self.fc1 = nn.Linear(input_dim, input_dim // 2)
-        self.fc2 = nn.Linear(input_dim // 2, 1)
+        self.fc1 = nn.Linear(input_dim * 2, input_dim)
+        self.fc2 = nn.Linear(input_dim, output_dim)
         self.act = nn.ReLU()
+        self.dropout = nn.Dropout(dropout)
 
     def forward(self, input_1: torch.Tensor, input_2: torch.Tensor, times=None):
-        """
-        merge and project the inputs
-        :param input_1: Tensor, shape (*, input_dim1)
-        :param input_2: Tensor, shape (*, input_dim2)
-        :return:
-        """
-        # Tensor, shape (*, input_dim1 + input_dim2)
         x = torch.cat([input_1, input_2], dim=1)
-        # Tensor, shape (*, output_dim)
-        h = self.fc2(self.act(self.fc1(x)))
-        return h
+        return self.fc2(self.dropout(self.act(self.fc1(x))))
 
-
-class MLP(nn.Module):
-    def __init__(self, input_dim, hidden_dim, output_dim):
-        super().__init__()
-        self.fc1 = nn.Linear(input_dim, hidden_dim)
-        self.fc2 = nn.Linear(hidden_dim, output_dim)
-        self.act = nn.ReLU()
-
-    def forward(self, x):
-        h = self.fc2(self.act(self.fc1(x)))
-        return h
+    def prototypical_encoding(self, model):
+        pass
 
 
 class LinkPredictor(nn.Module):
-    def __init__(self, prompt_dim, lamb=0):
+    def __init__(self, prompt_dim, lamb, dropout):
         super().__init__()
         self.lamb = lamb
         self.prompts = nn.Parameter(torch.ones(1, prompt_dim))
         self.time_encoder = TimeEncoder(time_dim=prompt_dim)
-        self.mlp = MLP(input_dim=2*prompt_dim, hidden_dim=prompt_dim, output_dim=1)
+        self.mlp = MLP(input_dim=prompt_dim, output_dim=1, dropout=dropout)
 
     def forward(self, input_1, input_2, times):
         src = torch.cat([input_1, input_1], dim=1)
@@ -146,40 +129,11 @@ class LinkPredictor(nn.Module):
         p = self.prompts + self.time_encoder(torch.from_numpy(times).unsqueeze(1).float().to(src.device)).squeeze(1) * self.lamb
         src = F.normalize(src * p)
         dst = F.normalize(dst * p)
-        return self.mlp(torch.hstack((src, dst)))
-
-
-class EdgeClassifierBaseline(nn.Module):
-    def __init__(self, input_dim: int, output_dim: int, dropout: float = 0.1):
-        """
-        Multi-Layer Perceptron Classifier.
-        :param input_dim: int, dimension of input
-        :param dropout: float, dropout rate
-        """
-        super().__init__()
-        self.fc1 = nn.Linear(input_dim, input_dim // 2)
-        self.fc2 = nn.Linear(input_dim // 2, input_dim // 4)
-        self.fc3 = nn.Linear(input_dim // 4, output_dim)
-        self.act = nn.ReLU()
-        self.dropout = nn.Dropout(dropout)
-
-    def forward(self, input_1: torch.Tensor, input_2: torch.Tensor, times=None):
-        """
-        multi-layer perceptron classifier forward process
-        :param x: Tensor, shape (*, input_dim)
-        :return:
-        """
-        x = torch.cat([input_1, input_2], dim=1)
-        x = self.dropout(self.act(self.fc1(x)))
-        x = self.dropout(self.act(self.fc2(x)))
-        return self.fc3(x)
-
-    def prototypical_encoding(self, model):
-        pass
+        return self.mlp(src, dst)
 
 
 class EdgeClassifier(nn.Module):
-    def __init__(self, args, train_data, train_idx_data_loader, prompt_dim, mlp, lamb=0):
+    def __init__(self, args, train_data, train_idx_data_loader, prompt_dim, mlp, lamb):
         super().__init__()
         self.lamb = lamb
         self.args = args
@@ -195,8 +149,7 @@ class EdgeClassifier(nn.Module):
         p = self.prompts + self.time_encoder(torch.from_numpy(times).unsqueeze(1).float().to(self.args.device)).squeeze(1) * self.lamb
         src = F.normalize(features * p)
         dst = self.prototypical_edges
-        x = torch.hstack((src.repeat_interleave(dst.size(0), dim=0), dst.repeat(src.size(0), 1)))
-        res = self.mlp(x).reshape(src.size(0), dst.size(0))
+        res = self.mlp(src.repeat_interleave(dst.size(0), dim=0), dst.repeat(src.size(0), 1)).reshape(src.size(0), dst.size(0))
         return res
 
     def prototypical_encoding(self, model):
@@ -262,7 +215,7 @@ class EdgeClassifier(nn.Module):
 
 
 class EdgeClassifierLearnable(nn.Module):
-    def __init__(self, num_classes, prompt_dim, mlp, lamb=0):
+    def __init__(self, num_classes, prompt_dim, mlp, lamb):
         super().__init__()
         self.lamb = lamb
         self.prompts = nn.Parameter(torch.ones(1, prompt_dim))
@@ -275,8 +228,7 @@ class EdgeClassifierLearnable(nn.Module):
         p = self.prompts + self.time_encoder(torch.from_numpy(times).unsqueeze(1).float().to(features.device)).squeeze(1) * self.lamb
         src = F.normalize(features * p)
         dst = F.normalize(self.prototypical_edges)
-        x = torch.hstack((src.repeat_interleave(dst.size(0), dim=0), dst.repeat(src.size(0), 1)))
-        res = self.mlp(x).reshape(src.size(0), dst.size(0))
+        res = self.mlp(src.repeat_interleave(dst.size(0), dim=0), dst.repeat(src.size(0), 1)).reshape(src.size(0), dst.size(0))
         return res
 
     def prototypical_encoding(self, model):

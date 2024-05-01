@@ -14,7 +14,7 @@ from models.CAWN import CAWN
 from models.TCL import TCL
 from models.GraphMixer import GraphMixer
 from models.DyGFormer import DyGFormer
-from models.modules import BinaryLoss, LinkPredictor, LinkPredictorBaseline
+from models.modules import BinaryLoss, LinkPredictor, MLP
 from utils.utils import set_random_seed, convert_to_gpu, get_parameter_sizes, create_optimizer
 from utils.utils import get_neighbor_sampler, NegativeEdgeSampler
 from utils.metrics import get_link_prediction_metrics
@@ -108,7 +108,8 @@ if __name__ == "__main__":
                                          max_input_sequence_length=args.max_input_sequence_length, device=args.device)
         else:
             raise ValueError(f"Wrong value for model_name {args.model_name}!")
-        link_predictor = LinkPredictorBaseline(input_dim=2*node_raw_features.shape[1]) if args.no_pre else LinkPredictor(prompt_dim=2*node_raw_features.shape[1])
+        link_predictor = MLP(input_dim=node_raw_features.shape[1], output_dim=1, dropout=args.dropout) if args.no_pre \
+            else LinkPredictor(prompt_dim=2*node_raw_features.shape[1], lamb=args.lamb, dropout=args.dropout)
         model = nn.Sequential(dynamic_backbone, link_predictor)
         logger.info(f'model -> {model}')
         logger.info(f'model name: {args.model_name}, #parameters: {get_parameter_sizes(model) * 4} B, '

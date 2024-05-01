@@ -16,7 +16,7 @@ from models.CAWN import CAWN
 from models.TCL import TCL
 from models.GraphMixer import GraphMixer
 from models.DyGFormer import DyGFormer
-from models.modules import BinaryLoss, LinkPredictorBaseline, LinkPredictor, EdgeClassifier, EdgeClassifierBaseline, EdgeClassifierLearnable
+from models.modules import BinaryLoss, MLP, LinkPredictor, EdgeClassifier, EdgeClassifierLearnable
 from utils.utils import set_random_seed, convert_to_gpu, get_parameter_sizes, create_optimizer
 from utils.utils import get_neighbor_sampler
 from evaluate_models_utils import evaluate_model_classification
@@ -117,7 +117,8 @@ if __name__ == "__main__":
                                          max_input_sequence_length=args.max_input_sequence_length, device=args.device)
         else:
             raise ValueError(f"Wrong value for model_name {args.model_name}!")
-        link_predictor = LinkPredictorBaseline(input_dim=2*node_raw_features.shape[1]) if args.no_pre else LinkPredictor(prompt_dim=2*node_raw_features.shape[1])
+        link_predictor = MLP(input_dim=node_raw_features.shape[1], output_dim=1, dropout=args.dropout) if args.no_pre \
+            else LinkPredictor(prompt_dim=2*node_raw_features.shape[1], lamb=args.lamb, dropout=args.dropout)
         model = nn.Sequential(dynamic_backbone, link_predictor)
 
         # load the saved model in the link prediction task
@@ -133,11 +134,11 @@ if __name__ == "__main__":
         num_classes = train_data.labels.max().item() + 1
         match args.classifier:
             case 'mean':
-                edge_classifier = EdgeClassifier(args, train_data, train_idx_data_loader, prompt_dim=2*node_raw_features.shape[1], mlp=model[1].mlp)
+                edge_classifier = EdgeClassifier(args, train_data, train_idx_data_loader, prompt_dim=2*node_raw_features.shape[1], mlp=model[1].mlp, lamb=args.lamb)
             case 'learnable':
-                edge_classifier = EdgeClassifierLearnable(num_classes=num_classes, prompt_dim=2*node_raw_features.shape[1], mlp=model[1].mlp)
+                edge_classifier = EdgeClassifierLearnable(num_classes=num_classes, prompt_dim=2*node_raw_features.shape[1], mlp=model[1].mlp, lamb=args.lamb)
             case 'baseline':
-                edge_classifier = EdgeClassifierBaseline(input_dim=2*node_raw_features.shape[1], output_dim=num_classes if num_classes > 2 else 1, dropout=args.dropout)
+                edge_classifier = MLP(input_dim=node_raw_features.shape[1], output_dim=num_classes if num_classes > 2 else 1, dropout=args.dropout)
         model = nn.Sequential(model[0], edge_classifier)
         logger.info(f'model -> {model}')
         logger.info(f'model name: {args.model_name}, #parameters: {get_parameter_sizes(model) * 4} B, '
