@@ -59,9 +59,10 @@ class TimeEncoder(nn.Module):
 class TransformerTimeEncoder(nn.Module):
 
     def __init__(self, time_dim):
+        super().__init__()
         self.time_dim = time_dim
 
-    def positional_encoding(self, times: torch.Tensor):
+    def forward(self, times: torch.Tensor):
         positions = torch.arange(self.time_dim, device=times.device)
         div_term = torch.pow(10000.0, -2 * positions / self.time_dim)
         encoded = times * div_term
