@@ -12,7 +12,7 @@ def get_link_prediction_args():
     # arguments
     parser = argparse.ArgumentParser('Interface for the link prediction task')
     parser.add_argument('--dataset_name', type=str, help='dataset to be used', default='wikipedia',
-                        choices=['wikipedia', 'moocact', 'bitcoinalpha', 'bitcoinotc', 'hyperlink', 'reddit', 'gdelt', 'mooc', 'lastfm', 'enron', 'SocialEvo', 'uci', 'Flights', 'CanParl', 'USLegis', 'UNtrade', 'UNvote', 'Contacts'])
+                        choices=['wikipedia', 'bitcoinalpha', 'bitcoinotc', 'hyperlink', 'reddit', 'gdelt', 'mooc', 'lastfm', 'enron', 'SocialEvo', 'uci', 'Flights', 'CanParl', 'USLegis', 'UNtrade', 'UNvote', 'Contacts'])
     parser.add_argument('--batch_size', type=int, default=256, help='batch size')
     parser.add_argument('--model_name', type=str, default='DyGFormer', help='name of the model, note that EdgeBank is only applicable for evaluation',
                         choices=['JODIE', 'DyRep', 'TGAT', 'TGN', 'CAWN', 'EdgeBank', 'TCL', 'GraphMixer', 'DyGFormer'])
@@ -81,7 +81,7 @@ def load_link_prediction_best_configs(args: argparse.Namespace):
             args.dropout = 0.1
         if args.dataset_name in ['bitcoinalpha']:
             args.sample_neighbor_strategy = 'uniform'
-        elif args.dataset_name in ['moocact', 'bitcoinotc', 'hyperlink', 'reddit', 'gdelt', 'CanParl', 'UNtrade']:
+        elif args.dataset_name in ['bitcoinotc', 'hyperlink', 'reddit', 'gdelt', 'CanParl', 'UNtrade']:
             args.sample_neighbor_strategy = 'uniform'
         else:
             args.sample_neighbor_strategy = 'recent'
@@ -220,7 +220,7 @@ def get_classification_args():
     """
     # arguments
     parser = argparse.ArgumentParser('Interface for the edge classification task')
-    parser.add_argument('--dataset_name', type=str, help='dataset to be used', default='wikipedia', choices=['wikipedia', 'moocact', 'bitcoinalpha', 'bitcoinotc', 'hyperlink', 'reddit', 'gdelt'])
+    parser.add_argument('--dataset_name', type=str, help='dataset to be used', default='wikipedia', choices=['wikipedia', 'bitcoinalpha', 'bitcoinotc', 'hyperlink', 'reddit', 'gdelt'])
     parser.add_argument('--batch_size', type=int, default=256, help='batch size')
     parser.add_argument('--model_name', type=str, default='DyGFormer', help='name of the model',
                         choices=['JODIE', 'DyRep', 'TGAT', 'TGN', 'CAWN', 'TCL', 'GraphMixer', 'DyGFormer'])
@@ -281,7 +281,7 @@ def load_classification_best_configs(args: argparse.Namespace):
         args.num_neighbors = 20
         args.num_layers = 2
         args.dropout = 0.1
-        if args.dataset_name in ['moocact', 'bitcoinalpha', 'bitcoinotc', 'hyperlink', 'gdelt', 'reddit']:
+        if args.dataset_name in ['bitcoinalpha', 'bitcoinotc', 'hyperlink', 'gdelt', 'reddit']:
             args.sample_neighbor_strategy = 'uniform'
         else:
             args.sample_neighbor_strategy = 'recent'

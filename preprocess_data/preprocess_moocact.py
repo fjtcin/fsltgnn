@@ -30,7 +30,6 @@ def preprocess_data(node_feat_dim):
     df['USERID'] += 1
     df['TARGETID'] += df['USERID'].max() + 1
 
-    df['TIMESTAMP'] = df['TIMESTAMP'].astype(int)
     assert df['TIMESTAMP'].is_monotonic_increasing
 
     df.rename(columns={
