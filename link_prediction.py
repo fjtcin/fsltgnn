@@ -20,14 +20,14 @@ from utils.utils import get_neighbor_sampler, NegativeEdgeSampler
 from utils.metrics import get_link_prediction_metrics
 from utils.DataLoader import get_idx_data_loader, get_link_prediction_data
 from utils.EarlyStopping import EarlyStopping
-from utils.load_configs import get_link_prediction_args
+from utils.load_configs import get_args
 
 if __name__ == "__main__":
 
     warnings.filterwarnings('ignore')
 
     # get arguments
-    args = get_link_prediction_args()
+    args = get_args()
 
     # get data for training, validation and testing
     node_raw_features, edge_raw_features, train_data = get_link_prediction_data(dataset_name=args.dataset_name, full_ratio=args.full_ratio)
