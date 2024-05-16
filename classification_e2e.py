@@ -23,14 +23,14 @@ from evaluate_models_utils import evaluate_model_classification
 from utils.metrics import get_classification_metrics
 from utils.DataLoader import get_idx_data_loader, get_classification_data
 from utils.EarlyStopping import EarlyStopping
-from utils.load_configs import get_classification_args
+from utils.load_configs import get_args
 
 if __name__ == "__main__":
 
     warnings.filterwarnings('ignore')
 
     # get arguments
-    args = get_classification_args()
+    args = get_args()
 
     # get data for training, validation and testing
     node_raw_features, edge_raw_features, full_data, train_data, val_data, test_data, new_node_val_data, new_node_test_data = \
