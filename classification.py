@@ -53,8 +53,8 @@ if __name__ == "__main__":
 
         if args.num_runs > 1: args.seed = run
         set_random_seed(args.seed)
-        args.load_model_name = 'link_prediction' + ('_baseline' if args.no_pre else '')
-        args.save_model_name = f'classification_{args.classifier}' + (f'--no_pre' if args.no_pre else '')
+        args.load_model_name = 'link_prediction'
+        args.save_model_name = f'classification_{args.classifier}'
 
         # set up logger
         logging.basicConfig(level=logging.INFO)
@@ -117,8 +117,7 @@ if __name__ == "__main__":
                                          max_input_sequence_length=args.max_input_sequence_length, device=args.device)
         else:
             raise ValueError(f"Wrong value for model_name {args.model_name}!")
-        link_predictor = MLP(input_dim=node_raw_features.shape[1], output_dim=1, dropout=args.dropout) if args.no_pre \
-            else LinkPredictor(prompt_dim=2*node_raw_features.shape[1], lamb=args.lamb, dropout=args.dropout)
+        link_predictor = LinkPredictor(prompt_dim=2*node_raw_features.shape[1], lamb=args.lamb, dropout=args.dropout)
         model = nn.Sequential(dynamic_backbone, link_predictor)
 
         # load the saved model in the link prediction task
