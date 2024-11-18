@@ -21,7 +21,7 @@ def preprocess_data():
     select = np.arange(0, len(df), 100)
     df = df.iloc[select]
     df = df.reset_index(drop=True)
-    edge_feats = torch.load(EDGE_PATH).numpy()
+    edge_feats = torch.load(EDGE_PATH, weights_only=True).numpy()
     edge_feats = edge_feats[select]
 
     df2 = pd.read_csv(LABEL_PATH, usecols=['node', 'time', 'label'])
@@ -45,7 +45,7 @@ def preprocess_data():
     valid_nodes = df2["node"].unique()
 
     assert set(valid_nodes) == unique_nodes
-    node_feats = torch.load(NODE_PATH).numpy()[valid_nodes]
+    node_feats = torch.load(NODE_PATH, weights_only=True).numpy()[valid_nodes]
 
     le = LabelEncoder()
     le.fit(valid_nodes)

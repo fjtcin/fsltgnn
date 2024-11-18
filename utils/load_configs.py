@@ -8,7 +8,7 @@ def get_args():
     parser.add_argument('--dataset_name', type=str, help='dataset to be used', default='wikipedia', choices=['wikipedia', 'bitcoinalpha', 'bitcoinotc', 'hyperlink', 'reddit', 'gdelt', 'mooc'])
     parser.add_argument('--batch_size', type=int, default=256, help='batch size')
     parser.add_argument('--model_name', type=str, default='DyGFormer', help='name of the model',
-                        choices=['JODIE', 'DyRep', 'TGAT', 'TGN', 'CAWN', 'TCL', 'GraphMixer', 'DyGFormer'])
+                        choices=['TGAT', 'CAWN', 'TCL', 'GraphMixer', 'DyGFormer'])  # memory-based models ('JODIE', 'DyRep', 'TGN') are not supported
     parser.add_argument('--gpu', type=int, default=0, help='number of gpu to use')
     parser.add_argument('--num_neighbors', type=int, default=20, help='number of neighbors to sample for each node')
     parser.add_argument('--sample_neighbor_strategy', type=str, default='recent', choices=['uniform', 'recent', 'time_interval_aware'], help='how to sample historical neighbors')
