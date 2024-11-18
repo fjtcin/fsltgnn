@@ -71,6 +71,9 @@ def preprocess_data():
     df2['idx'] = df2.index + 1
     assert df2['ts'].is_monotonic_increasing
 
+    le.fit(df2['label'])
+    df2['label'] = le.transform(df2['label'])
+
     empty = np.zeros(edge_feats.shape[1])
     edge_feats = np.vstack([empty, edge_feats])
     empty = np.zeros(node_feats.shape[1])
