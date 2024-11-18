@@ -125,7 +125,7 @@ if __name__ == "__main__":
                                        save_model_name=args.load_model_name, logger=logger, model_name=args.model_name)
         early_stopping.load_checkpoint(model, map_location='cpu')
 
-        if args.classifier != 'baseline':
+        if args.classifier != 'mlp':
             for param in model[1].mlp.parameters():
                 param.requires_grad = False
 
@@ -136,7 +136,7 @@ if __name__ == "__main__":
                 edge_classifier = EdgeClassifier(args, train_data, train_idx_data_loader, prompt_dim=2*node_raw_features.shape[1], mlp=model[1].mlp, lamb=args.lamb)
             case 'learnable':
                 edge_classifier = EdgeClassifierLearnable(num_classes=num_classes, prompt_dim=2*node_raw_features.shape[1], mlp=model[1].mlp, lamb=args.lamb)
-            case 'baseline':
+            case 'mlp':
                 edge_classifier = MLP(input_dim=node_raw_features.shape[1], output_dim=num_classes if num_classes > 2 else 1, dropout=args.dropout)
         model = nn.Sequential(model[0], edge_classifier)
         logger.info(f'model -> {model}')
