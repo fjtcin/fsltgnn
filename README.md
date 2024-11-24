@@ -167,7 +167,7 @@ The effectiveness of our model is heavily based on the datasets, and the results
 
 There are two standalone python scripts in the `utils/` directory.
 
-### `check_mooc.py`: different versions of the MOOC dataset
+#### `check_mooc.py`: different versions of the MOOC dataset
 
 Apart from the `mooc` dataset provided from [DGB](https://github.com/fpour/DGB), there is also a `mooc` dataset provided by Stanford [SNAP](https://snap.stanford.edu/data/act-mooc.html). We call the `mooc` dataset from SNAP `moocact`. The `moocact` dataset is the same as `mooc`, except for a few errors.
 
@@ -175,7 +175,7 @@ We first preprocess the `moocact` dataset using `python preprocess_data/preproce
 
 To show the errors in the `moocact` dataset, we need to uncomment `print_erroneous_df(df3)`, and we will discover there are some wrong ACTIONIDs in the `mooc_action_labels.tsv` table. The preprocessing step corrects it.
 
-### `one_hot_speed_test.py`: performance measurement of one-hot encoding methods
+#### `one_hot_speed_test.py`: performance measurement of one-hot encoding methods
 
 This Python program uses the PyTorch library to compare the performance of three different methods for converting class labels into one-hot encoded format. The program measures and compares the execution time of these methods when applied to a batch of labels.
 
@@ -195,7 +195,22 @@ PyTorch Time: 0.02737879753112793
 - The **PyTorch built-in function** (`F.one_hot`) is the second fastest. Although it is not as quick as the scatter method, it provides a straightforward and easy-to-read approach for one-hot encoding, which might be preferred for code clarity and maintainability.
 - The **advanced indexing method** is the slowest. While this method is conceptually simple and direct, it is considerably less efficient compared to the other two methods, especially in a high-performance computing environment.
 
-### `--lamb` hyper-parameter
+### Hyper-parameters
+
+There are some notable hyper-parameters in our model.
+
+#### `full_ratio`, `val_ratio`, `test_ratio`: dataset splitting
+
+- `full_ratio` hyper-parameter is the ratio of data used in the downstream task.
+- `val_ratio` hyper-parameter is the ratio of data used in the downstream validation phase.
+- `test_ratio` hyper-parameter is the ratio of data used in the downstream test phase.
+- `train_ratio` is not a hyper-parameter, and it can be calculated by `train_ratio = full_ratio - val_ratio - test_ratio`, which represents the ratio of data used in the downstream training phase.
+
+In the default setting, `full_ratio = 0.3, val_ratio = 0.05, test_ratio = 0.2`, so `train_ratio = 0.05`. 5% of the datasets is used in the downstream traing task. Hence it is a few-shot learning scenario.
+
+The dataset is split by timestamps. The pretraining dataset spans on the first 70% of time range, and 5% downstream training follows, and 5% downstream validation follows, and downstream test is the last 20% of time range.
+
+#### `lamb`: time-encoding weight in prompt
 
 As stated in the [Model section](#model), there is a task-specific prompt for link prediction, edge classification or node classification, to harmonize task discrepancies in the pretraining-prompt architecture. For temporal graph datasets, we may also want to incorporate the temporal information into such prompt. We vectorize the timestaps, multiply it by `lamb` and add it to the prompt.
 
