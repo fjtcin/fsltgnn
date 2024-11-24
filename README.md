@@ -2,21 +2,21 @@
 
 > This project is based upon [DyGLib](https://github.com/yule-BUAA/DyGLib).
 
-To solve the few-shot learning problem on temporal graph neural networks (TGNNs), we leverage the pretraining-prompt and pretraining-finetuning techniques originally used to solve few-shot learning on normal GNNs.
+This in an all-in-one model for link prediction, edge classification, and node classification tasks.
 
-This project involves both edge classification and node classification tasks.
+To solve the few-shot learning problem on temporal graph neural networks (TGNNs), we leverage the pretraining-prompt and pretraining-finetuning techniques originally used to solve few-shot learning on GNNs.
 
 ## Model
 
 We use a TGNN model, either `TGAT`, `CAWN`, `TCL`, `GraphMixer` or `DyGFormer`, as the dynamic backbone. It does the job of integrating temporal information (timestamps) and graph structure information, along with feature vectors of edges and/or nodes, into node embeddings.
 
-We design our predictor model, which uses these node embeddings for link prediction, edge classification, and node classification tasks.
+We design our predictor model using the node embeddings for link prediction, edge classification, and node classification tasks. Edge embeddings serve as the basic graph component to unify different tasks, and they are derived from node embeddings. We construct the *directed edge embedding* by concatenating [source node embedding, destination node embedding]; we construct the *node self-loop embedding* by concatenating [node embedding, node embedding]. Therefore, the node classification task is converted to edge classification by classifying the self-loop.
 
-The link prediction is a pretraining task and we do not report its ROC_AUC score. (In fact, we do not even need to evaluate its ROC_AUC score if we use loss for early stopping. There is no evaluation phase.) The predictor is similarity-based and prompt-based. Every training batch is composed of two equally sized groups of directed edges. The two groups also have exactly the same source nodes of edges. In the positive group, the destination nodes are connected to each corresponding source node, while in the negative group, they are not. The node embeddings are first multiplied by a generic task-related prompt, and the similarity of each <source node, destination node> pair is calculated and compared to a binary value of whether there exists such a directed edge between the two nodes. The similarity can be implemented as cosine-similarity, but we use MLP-similarity to improve model learning capability. The parameters of the MLP-similarity will be frozen in classification tasks if pretraining-prompt architecture is employed. If pretraining-finetuning architecture is employed, we do not use the predictor trained in this section; i.e., we only use the backbone model.
+The link prediction is a pretraining task and we do not report its ROC_AUC score. (In fact, we even do not need to evaluate its ROC_AUC score if we use loss for early stopping. There is no evaluation phase.) The predictor is similarity-based and prompt-based. Every training batch is composed of two equally sized groups of directed edges. The two groups also have exactly the same source nodes of edges. In the positive group, the destination nodes are connected to each corresponding source node, while in the negative group, they are not. (In implementation, the negative destination nodes are radomly sampled from all destination nodes, so probably they are not connected to source nodes since the datasets are sparse graphs.) The node self-loop embeddings are first multiplied by a generic task-related prompt, and the similarity of each [source node self-loop, destination node self-loop] pair is calculated and compared to a binary value of whether there exists such a directed edge between the two nodes. The similarity can be implemented as cosine-similarity, but we use MLP-similarity to improve model learning capability. The parameters of the MLP-similarity will be frozen in classification tasks if pretraining-prompt architecture is employed. If pretraining-finetuning architecture is employed, we do not use the predictor trained in this section; i.e., we only reuse the backbone model.
 
-Edge classification predictor has three options: the `learnable` classifier, the `mean` classifier, and the `mlp` classifier. The `mlp` classifier uses pretraining-finetuning architecture, and the class predicted is MLP<source node embedding, destination node embedding>. The `learnable` and `mean` classifiers use pretraining-prompt architecture: When determining the class for an edge, we compare it to each prototypical edge that is considered to be the center edge for each class. By "compare," we mean the similarity is calculated. (Again, cosine-similarity is more intuitive, but similarity calculated by MLP has superior performance.) The edge is classified into the class whose prototypical edge is most similar to the edge itself. In the `learnable` classifier, the prototypical edges are learnable parameter tensors randomly initialized. In the `mean` setting, the prototypical edges are the mean values of all current node embeddings of the same classes. The `mean` prototypical edges need to be calculated over all training data for every epoch (since the node embedding changes during training), so training time becomes $\Omega(n^2)$ from $\Omega(n)$, where $n$ is the number of training data. However, it is still computable since we are dealing with a few-shot learning problem.
+For the downstream classification tasks, the classifier has three options: the `learnable` classifier, the `mean` classifier, and the `mlp` classifier. The `mlp` classifier uses pretraining-finetuning architecture, and the class predicted is the MLP output of directed edge embeddings (for edge classification) or node self-loop embeddings (for node classification). The `learnable` and `mean` classifiers use pretraining-prompt architecture: when determining the class for an edge, we compare it to each prototypical edge that is considered to be the center edge for each class. By "compare," we mean the similarity is calculated. (Again, cosine-similarity is more intuitive, but similarity calculated by MLP has superior performance.) The edge is classified into the class whose prototypical edge is most similar to the edge itself. For the `learnable` classifier, the prototypical edges are learnable-parameter vectors randomly initialized. For the `mean` classifier, the prototypical edges are the mean values of all current node embeddings of the same classes. The `mean` prototypical edges need to be calculated over all training data repeatedly for every batch in every epoch (since the node embeddings change during training), so training time becomes $\Omega(n^2)$ from $\Omega(n)$, where $n$ is the number of training data. However, it is still computable since we are dealing with a few-shot learning problem. For `learnable` and `mean` classifiers, a generic task-related prompt is also applied to mitigate the gaps between the upstream prediction and downstream classification tasks.
 
-The node classification task is converted to edge classification. We add a self-loop for the node to be classified and classify the self-loop instead.
+The end-to-end baseline does not leverage pre-training, and its classifier is the same `mlp` classifier.
 
 ## Experiments
 
@@ -139,34 +139,73 @@ We trained the temporal dataset for 5% of the timestamps.
 
 | dataset | learnable classifier | mean classifier | MLP fine-tuning | end-to-end baseline |
 | -------- | ------- | ------- | ------- | ------- |
-| hyperlink          | 0.7298 ± 0.0071 | 0.7177 ± 0.0009 | 0.7218 ± 0.0019 | 0.6998 ± 0.0031 |
-| hyperlink (unseen) | 0.7101 ± 0.0085 | 0.7030 ± 0.0013 | 0.6932 ± 0.0025 | 0.6555 ± 0.0064 |
-| mooc               | 0.5988 ± 0.0447 | 0.6091 ± 0.0226 | 0.7486 ± 0.0063 | 0.7028 ± 0.0023 |
-| mooc (unseen)      | 0.6046 ± 0.0416 | 0.6147 ± 0.0235 | 0.7550 ± 0.0039 | 0.7011 ± 0.0018 |
-| wikipedia          | 0.5525 ± 0.1233 | 0.7161 ± 0.0152 | 0.5441 ± 0.2306 | 0.8334 ± 0.0129 |
-| wikipedia (unseen) | 0.5562 ± 0.1263 | 0.7219 ± 0.0164 | 0.5362 ± 0.2303 | 0.8028 ± 0.0203 |
+| hyperlink          | **0.7298 ± 0.0071** | 0.7177 ± 0.0009 | 0.7218 ± 0.0019 | 0.6998 ± 0.0031 |
+| hyperlink (unseen) | **0.7101 ± 0.0085** | 0.7030 ± 0.0013 | 0.6932 ± 0.0025 | 0.6555 ± 0.0064 |
+| mooc               | 0.5988 ± 0.0447 | 0.6091 ± 0.0226 | **0.7486 ± 0.0063** | 0.7028 ± 0.0023 |
+| mooc (unseen)      | 0.6046 ± 0.0416 | 0.6147 ± 0.0235 | **0.7550 ± 0.0039** | 0.7011 ± 0.0018 |
+| reddit             | 0.5870 ± 0.0042 | **0.6452 ± 0.0141** | 0.6314 ± 0.0109 | 0.6312 ± 0.0357 |
+| reddit (unseen)    | 0.5727 ± 0.0247 | **0.6540 ± 0.0173** | 0.6233 ± 0.0181 | 0.6009 ± 0.0269 |
+| wikipedia          | 0.5525 ± 0.1233 | 0.7161 ± 0.0152 | 0.5441 ± 0.2306 | **0.8334 ± 0.0129** |
+| wikipedia (unseen) | 0.5562 ± 0.1263 | 0.7219 ± 0.0164 | 0.5362 ± 0.2303 | **0.8028 ± 0.0203** |
 
 | dataset | learnable classifier | mean classifier | MLP fine-tuning | end-to-end baseline |
 | -------- | ------- | ------- | ------- | ------- |
 | gdelt              | 0.3788          | 0.3853          | 0.4596          | 0.4182          |
 | gdelt (unseen)     | 0.3717          | 0.3676          | 0.3567          | 0.3137          |
 
+#### DyGFormer backbone
+
 ## Conclusion
 
-We achieved 9.0% and 7.8% improvement on `hyperlink` for pretraining-prompt (learnable classifier) and pretraining-finetuning respectively, campared to the end-to-end baseline.
+We achieved 9.0% and 7.8% improvement on `hyperlink` for pretraining-prompt (`learnable` classifier) and pretraining-finetuning respectively, campared to the end-to-end baseline. (GraphMixer backbone)
+
+The effectiveness of our model is heavily based on the datasets, and the results vary across different datasets. We need more high-quality datasets to evaluate the models properly.
 
 ## Appendix
+
+### Additional scripts
 
 There are two standalone python scripts in the `utils/` directory.
 
 ### `check_mooc.py`: different versions of the MOOC dataset
 
+Apart from the `mooc` dataset provided from [DGB](https://github.com/fpour/DGB), there is also a `mooc` dataset provided by Stanford [SNAP](https://snap.stanford.edu/data/act-mooc.html). We call the `mooc` dataset from SNAP `moocact`. The `moocact` dataset is the same as `mooc`, except for a few errors.
+
+We first preprocess the `moocact` dataset using `python preprocess_data/preprocess_moocact.py`. Then, we can compare the `mooc` and `moocact` datasets with `python utils/check_mooc.py`, and we will find out they are the same.
+
+To show the errors in the `moocact` dataset, we need to uncomment `print_erroneous_df(df3)`, and we will discover there are some wrong ACTIONIDs in the `mooc_action_labels.tsv` table. The preprocessing step corrects it.
+
 ### `one_hot_speed_test.py`: performance measurement of one-hot encoding methods
 
-example output:
+This Python program uses the PyTorch library to compare the performance of three different methods for converting class labels into one-hot encoded format. The program measures and compares the execution time of these methods when applied to a batch of labels.
+
+- **Scatter Method**: Uses the `scatter_` function to create a one-hot encoded tensor. It first initializes an empty tensor of the appropriate shape and then scatters a value of 1 across it based on the label indices.
+- **Advanced Indexing Method**: Directly sets the appropriate indices to 1 by using advanced indexing techniques (`one_hot_labels[torch.arange(batch_size), labels] = 1`).
+- **PyTorch Built-in Function**: Utilizes the `F.one_hot` function to convert the integer labels into a one-hot encoded tensor directly.
+
+`python utils/one_hot_speed_test.py` example output:
 
 ```text
 Scatter Time: 0.015410900115966797
 Advanced Indexing Time: 0.10599017143249512
 PyTorch Time: 0.02737879753112793
 ```
+
+- The **scatter method** is the fastest among the three, significantly outperforming the other methods. This suggests that using `scatter_` for one-hot encoding is highly efficient, particularly when dealing with large batches of data on a GPU.
+- The **PyTorch built-in function** (`F.one_hot`) is the second fastest. Although it is not as quick as the scatter method, it provides a straightforward and easy-to-read approach for one-hot encoding, which might be preferred for code clarity and maintainability.
+- The **advanced indexing method** is the slowest. While this method is conceptually simple and direct, it is considerably less efficient compared to the other two methods, especially in a high-performance computing environment.
+
+### `--lamb` hyper-parameter
+
+As stated in the [Model section](#model), there is a task-specific prompt for link prediction, edge classification or node classification, to harmonize task discrepancies in the pretraining-prompt architecture. For temporal graph datasets, we may also want to incorporate the temporal information into such prompt. We vectorize the timestaps, multiply it by `lamb` and add it to the prompt.
+
+We test `lamb=0.2` with the GraphMixer backbone, and this incorporation does not give us a performance boost. The temporal information is already utilized by the backbone models so there is no need to integrate it to the prompt again.
+
+```bash
+python link_prediction.py --dataset_name hyperlink --model_name GraphMixer --load_best_configs --num_runs 3 --lamb 0.2
+python classification.py --classifier learnable --dataset_name hyperlink --model_name GraphMixer --load_best_configs --num_runs 3 --lamb 0.2
+python classification.py --classifier mean --dataset_name hyperlink --model_name GraphMixer --load_best_configs --num_runs 3 --lamb 0.2
+```
+
+| dataset | learnable classifier | mean classifier |
+| -------- | ------- | ------- |
