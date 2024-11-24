@@ -2,7 +2,7 @@
 
 > This project is based upon [DyGLib](https://github.com/yule-BUAA/DyGLib).
 
-This in an all-in-one model for link prediction, edge classification, and node classification tasks.
+This is an all-in-one model for link prediction, edge classification, and node classification tasks.
 
 To solve the few-shot learning problem on temporal graph neural networks (TGNNs), we leverage the pretraining-prompt and pretraining-finetuning techniques originally used to solve few-shot learning on GNNs.
 
@@ -12,7 +12,7 @@ We use a TGNN model, either `TGAT`, `CAWN`, `TCL`, `GraphMixer` or `DyGFormer`, 
 
 We design our predictor model using the node embeddings for link prediction, edge classification, and node classification tasks. Edge embeddings serve as the basic graph component to unify different tasks, and they are derived from node embeddings. We construct the *directed edge embedding* by concatenating [source node embedding, destination node embedding]; we construct the *node self-loop embedding* by concatenating [node embedding, node embedding]. Therefore, the node classification task is converted to edge classification by classifying the self-loop.
 
-The link prediction is a pretraining task and we do not report its ROC_AUC score. (In fact, we even do not need to evaluate its ROC_AUC score if we use loss for early stopping. There is no evaluation phase.) The predictor is similarity-based and prompt-based. Every training batch is composed of two equally sized groups of directed edges. The two groups also have exactly the same source nodes of edges. In the positive group, the destination nodes are connected to each corresponding source node, while in the negative group, they are not. (In implementation, the negative destination nodes are radomly sampled from all destination nodes, so probably they are not connected to source nodes since the datasets are sparse graphs.) The node self-loop embeddings are first multiplied by a generic task-related prompt, and the similarity of each [source node self-loop, destination node self-loop] pair is calculated and compared to a binary value of whether there exists such a directed edge between the two nodes. The similarity can be implemented as cosine-similarity, but we use MLP-similarity to improve model learning capability. The parameters of the MLP-similarity will be frozen in classification tasks if pretraining-prompt architecture is employed. If pretraining-finetuning architecture is employed, we do not use the predictor trained in this section; i.e., we only reuse the backbone model.
+The link prediction is a pretraining task and we do not report its ROC_AUC score. (In fact, we do not even need to evaluate its ROC_AUC score if we use loss for early stopping. There is no evaluation phase.) The predictor is similarity-based and prompt-based. Every training batch is composed of two equally sized groups of directed edges. The two groups also have exactly the same source nodes of edges. In the positive group, the destination nodes are connected to each corresponding source node, while in the negative group, they are not. (In the implementation, the negative destination nodes are randomly sampled from all destination nodes, so they are probably not connected to source nodes since the datasets are sparse graphs.) The node self-loop embeddings are first multiplied by a generic task-related prompt, and the similarity of each [source node self-loop, destination node self-loop] pair is calculated and compared to a binary value of whether there exists such a directed edge between the two nodes. The similarity can be implemented as cosine-similarity, but we use MLP-similarity to improve model learning capability. The parameters of the MLP-similarity will be frozen in classification tasks if pretraining-prompt architecture is employed. If pretraining-finetuning architecture is employed, we do not use the predictor trained in this section; i.e., we only reuse the backbone model.
 
 For the downstream classification tasks, the classifier has three options: the `learnable` classifier, the `mean` classifier, and the `mlp` classifier. The `mlp` classifier uses pretraining-finetuning architecture, and the class predicted is the MLP output of directed edge embeddings (for edge classification) or node self-loop embeddings (for node classification). The `learnable` and `mean` classifiers use pretraining-prompt architecture: when determining the class for an edge, we compare it to each prototypical edge that is considered to be the center edge for each class. By "compare," we mean the similarity is calculated. (Again, cosine-similarity is more intuitive, but similarity calculated by MLP has superior performance.) The edge is classified into the class whose prototypical edge is most similar to the edge itself. For the `learnable` classifier, the prototypical edges are learnable-parameter vectors randomly initialized. For the `mean` classifier, the prototypical edges are the mean values of all current node embeddings of the same classes. The `mean` prototypical edges need to be calculated over all training data repeatedly for every batch in every epoch (since the node embeddings change during training), so training time becomes $\Omega(n^2)$ from $\Omega(n)$, where $n$ is the number of training data. However, it is still computable since we are dealing with a few-shot learning problem. For `learnable` and `mean` classifiers, a generic task-related prompt is also applied to mitigate the gaps between the upstream prediction and downstream classification tasks.
 
@@ -76,7 +76,7 @@ Run `python preprocess_data/preprocess_data.py --dataset_name reddit`.
 
 #### wikipedia
 
-> The wikipedia dataset is from [DGB](https://github.com/fpour/DGB). It consists of edits on Wikipedia pages over one month. Editors and wiki pages are modelled as nodes, and the timestamped posting requests are edges. See their [paper](https://arxiv.org/pdf/2207.10128) for more details.
+> The wikipedia dataset is from [DGB](https://github.com/fpour/DGB). It consists of edits on Wikipedia pages over one month. Editors and wiki pages are modeled as nodes, and the timestamped posting requests are edges. See their [paper](https://arxiv.org/pdf/2207.10128) for more details.
 
 Download the [wikipedia](https://zenodo.org/records/7213796/files/wikipedia.zip) dataset and unzip it to `./DG_data/`.
 
@@ -127,9 +127,9 @@ python classification_e2e.py --dataset_name hyperlink --model_name GraphMixer --
 
 ### Results
 
-All Edge classification datasets we have found are for binary classification. A ROC_AUC score from 3 runs is repoted.
+All Edge classification datasets we have found are for binary classification. A ROC_AUC score from 3 runs is reported.
 
-We have only found one dataset that is availble for node classification. We preprocessed the `gdelt` dataset for 4-class classification. An Accuracy score from 1 run is reported.
+We have only found one dataset that is available for node classification. We preprocessed the `gdelt` dataset for 4-class classification. An Accuracy score from 1 run is reported.
 
 The "unseen" tag means an edge/node that is in training data will not appear in the test data, although timestamps are different. In other words, it is the test data with repeating edge/nodes from the training data removed.
 
@@ -157,7 +157,7 @@ We trained the temporal dataset for 5% of the timestamps.
 
 ## Conclusion
 
-We achieved 9.0% and 7.8% improvement on `hyperlink` for pretraining-prompt (`learnable` classifier) and pretraining-finetuning respectively, campared to the end-to-end baseline. (GraphMixer backbone)
+We achieved 9.0% and 7.8% improvement on `hyperlink` for pretraining-prompt (`learnable` classifier) and pretraining-finetuning respectively, compared to the end-to-end baseline. (GraphMixer backbone)
 
 The effectiveness of our model is heavily based on the datasets, and the results vary across different datasets. We need more high-quality datasets to evaluate the models properly.
 
@@ -169,11 +169,11 @@ There are two standalone python scripts in the `utils/` directory.
 
 #### `check_mooc.py`: different versions of the MOOC dataset
 
-Apart from the `mooc` dataset provided from [DGB](https://github.com/fpour/DGB), there is also a `mooc` dataset provided by Stanford [SNAP](https://snap.stanford.edu/data/act-mooc.html). We call the `mooc` dataset from SNAP `moocact`. The `moocact` dataset is the same as `mooc`, except for a few errors.
+Apart from the `mooc` dataset provided by [DGB](https://github.com/fpour/DGB), there is also a `mooc` dataset provided by Stanford [SNAP](https://snap.stanford.edu/data/act-mooc.html). We call the `mooc` dataset from SNAP `moocact`. The `moocact` dataset is the same as `mooc`, except for a few errors.
 
-We first preprocess the `moocact` dataset using `python preprocess_data/preprocess_moocact.py`. Then, we can compare the `mooc` and `moocact` datasets with `python utils/check_mooc.py`, and we will find out they are the same.
+We first preprocess the `moocact` dataset using `python preprocess_data/preprocess_moocact.py`. Then, we can compare the `mooc` and `moocact` datasets with `python utils/check_mooc.py`. The finding is that they are the same dataset.
 
-To show the errors in the `moocact` dataset, we need to uncomment `print_erroneous_df(df3)`, and we will discover there are some wrong ACTIONIDs in the `mooc_action_labels.tsv` table. The preprocessing step corrects it.
+To show the errors in the `moocact` dataset, we need to uncomment `print_erroneous_df(df3)`, and we will discover some wrong ACTIONIDs in the `mooc_action_labels.tsv` table. The preprocessing step corrects it.
 
 #### `one_hot_speed_test.py`: performance measurement of one-hot encoding methods
 
@@ -206,13 +206,13 @@ There are some notable hyper-parameters in our model.
 - `test_ratio` hyper-parameter is the ratio of data used in the downstream test phase.
 - `train_ratio` is not a hyper-parameter, and it can be calculated by `train_ratio = full_ratio - val_ratio - test_ratio`, which represents the ratio of data used in the downstream training phase.
 
-In the default setting, `full_ratio = 0.3, val_ratio = 0.05, test_ratio = 0.2`, so `train_ratio = 0.05`. 5% of the datasets is used in the downstream traing task. Hence it is a few-shot learning scenario.
+In the default setting, `full_ratio = 0.3, val_ratio = 0.05, test_ratio = 0.2`, so `train_ratio = 0.05`. 5% of the dataset is used in the downstream training task. Hence it is a few-shot learning scenario.
 
-The dataset is split by timestamps. The pretraining dataset spans on the first 70% of time range, and 5% downstream training follows, and 5% downstream validation follows, and downstream test is the last 20% of time range.
+The dataset is divided based on timestamps into four sequential segments: the first 70% is used for pretraining, followed by 5% for downstream training, another 5% for downstream validation, and the final 20% serves as the downstream test set.
 
 #### `lamb`: time-encoding weight in prompt
 
-As stated in the [Model section](#model), there is a task-specific prompt for link prediction, edge classification or node classification, to harmonize task discrepancies in the pretraining-prompt architecture. For temporal graph datasets, we may also want to incorporate the temporal information into such prompt. We vectorize the timestaps, multiply it by `lamb` and add it to the prompt.
+As outlined in the [Model section](#model), the pretraining-prompt architecture uses a task-specific prompt for link prediction, edge classification, or node classification to address discrepancies between different tasks. For temporal graph datasets, we may also want to incorporate the temporal information into the prompt. This is achieved by vectorizing the timestamps, scaling them by a factor of `lamb`, and then adding the result to the task-specific prompt.
 
 We test `lamb=0.2` with the GraphMixer backbone, and this incorporation does not give us a performance boost. The temporal information is already utilized by the backbone models so there is no need to integrate it to the prompt again.
 
