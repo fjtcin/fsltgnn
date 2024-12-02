@@ -129,7 +129,7 @@ python classification_e2e.py --dataset_name hyperlink --model_name GraphMixer --
 
 All Edge classification datasets we have found are for binary classification. A ROC_AUC score from 3 runs is reported.
 
-We have only found one dataset that is available for node classification. We preprocessed the `gdelt` dataset for 4-class classification. An Accuracy score from 1 run is reported.
+We have only found one dataset that is available for node classification. We preprocessed the `gdelt` dataset for 4-class classification. An Accuracy score from 3 runs is reported.
 
 The "unseen" tag means an edge/node that is in training data will not appear in the test data, although timestamps are different. In other words, it is the test data with repeating edge/nodes from the training data removed.
 
