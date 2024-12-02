@@ -150,10 +150,15 @@ We trained the model using 70% of the data for unsupervised pretraining and 5% f
 
 | dataset | learnable classifier | mean classifier | MLP fine-tuning | end-to-end baseline |
 | -------- | ------- | ------- | ------- | ------- |
-| gdelt              | 0.3788          | 0.3853          | 0.4596          | 0.4182          |
-| gdelt (unseen)     | 0.3717          | 0.3676          | 0.3567          | 0.3137          |
+| gdelt              | 0.4477 ± 0.0051 | 0.3925 ± 0.0104 | **0.4574 ± 0.0011** | 0.4187 ± 0.0047 |
+| gdelt (unseen)     | **0.3739 ± 0.0065** | 0.3624 ± 0.0067 | 0.3539 ± 0.0072 | 0.3207 ± 0.0083 |
 
 #### DyGFormer backbone
+
+| dataset | learnable classifier | mean classifier | MLP fine-tuning | end-to-end baseline |
+| -------- | ------- | ------- | ------- | ------- |
+| hyperlink          | 0.5030 ± 0.0780 | 0.5557 ± 0.0607 | 0.6871 ± 0.0115 | 0.7064 ± 0.0015 |
+| hyperlink (unseen) | 0.4893 ± 0.0729 | 0.5577 ± 0.0509 | 0.6533 ± 0.0073 | 0.6773 ± 0.0017 |
 
 ## Conclusion
 
@@ -214,7 +219,7 @@ The dataset is divided based on timestamps into four sequential segments: the fi
 
 As outlined in the [Model section](#model), the pretraining-prompt architecture uses a task-specific prompt for link prediction, edge classification, or node classification to address discrepancies between different tasks. For temporal graph datasets, we may also want to incorporate the temporal information into the prompt. This is achieved by vectorizing the timestamps, scaling them by a factor of `lamb`, and then adding the result to the task-specific prompt.
 
-We test `lamb=0.2` with the GraphMixer backbone, and this incorporation does not give us a performance boost. The temporal information is already utilized by the backbone models so there is no need to integrate it to the prompt again.
+We test `lamb=0.2` with the GraphMixer backbone, and this incorporation does not provide us with a significant performance boost. The temporal information is already utilized by the backbone models so there is little need to integrate it to the prompt again.
 
 ```bash
 python link_prediction.py --dataset_name hyperlink --model_name GraphMixer --load_best_configs --num_runs 3 --lamb 0.2
@@ -226,3 +231,5 @@ python classification.py --classifier mean --dataset_name hyperlink --model_name
 | -------- | ------- | ------- |
 | hyperlink          | 0.7305 ± 0.0036 | 0.7171 ± 0.0064 |
 | hyperlink (unseen) | 0.7113 ± 0.0072 | 0.7031 ± 0.0031 |
+| reddit             | 0.5932 ± 0.0124 | 0.6504 ± 0.0126 |
+| reddit (unseen)    | 0.5797 ± 0.0175 | 0.6561 ± 0.0255 |
