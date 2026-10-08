@@ -160,12 +160,6 @@ We trained the model using 70% of the data for unsupervised pretraining and 5% f
 | hyperlink          | 0.5030 ± 0.0780 | 0.5557 ± 0.0607 | 0.6871 ± 0.0115 | 0.7064 ± 0.0015 |
 | hyperlink (unseen) | 0.4893 ± 0.0729 | 0.5577 ± 0.0509 | 0.6533 ± 0.0073 | 0.6773 ± 0.0017 |
 
-## Conclusion
-
-We achieved 9.0% and 7.8% improvement on `hyperlink` for pretraining-prompt (`learnable` classifier) and pretraining-finetuning respectively, compared to the end-to-end baseline. (GraphMixer backbone)
-
-The effectiveness of our model is heavily based on the datasets, and the results vary across different datasets. We need more high-quality datasets to evaluate the models properly.
-
 ## Appendix
 
 ### Additional scripts
